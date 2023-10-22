@@ -12,13 +12,15 @@ import (
 func main() {
 	name := "testVM"
 	vb, vm := CreateVM(name)
-	vm, err := GetVMInfo(name)
+	vm, err := vb.VMInfo(name)
 	if err != nil {
 		fmt.Errorf("Get info VM failed: %s", err.Error())
 	}
-	vb.DeleteVM(vm)
+	fmt.Printf(" name: %s\n OSType: %s\n CPUs: %d\n memory: %d\n", vm.Spec.Name, vm.Spec.OSType, vm.Spec.CPU.Count, vm.Spec.Memory.SizeMB)
 
+	vb.DeleteVM(vm)
 }
+
 func CreateVM(name string) (*vbg.VBox, *vbg.VirtualMachine) {
 	// setup temp directory, that will be used to cache different VM related files during the creation of the VM.
 	dirName, err := ioutil.TempDir("", "vbm")
@@ -45,8 +47,8 @@ func CreateVM(name string) (*vbg.VBox, *vbg.VirtualMachine) {
 	vm := &vbg.VirtualMachine{}
 	vm.Spec.Name = name
 	vm.Spec.OSType = vbg.Linux64
-	vm.Spec.CPU.Count = 2
-	vm.Spec.Memory.SizeMB = 1000
+	vm.Spec.CPU.Count = 1
+	vm.Spec.Memory.SizeMB = 512
 	vm.Spec.Disks = []vbg.Disk{disk1}
 
 	err = vb.CreateVM(vm)
