@@ -18,7 +18,8 @@ func main() {
 	}
 	fmt.Printf(" name: %s\n OSType: %s\n CPUs: %d\n memory: %d\n", vm.Spec.Name, vm.Spec.OSType, vm.Spec.CPU.Count, vm.Spec.Memory.SizeMB)
 
-	vb.DeleteVM(vm)
+	//vb.DeleteVM(vm)
+	//vb.UnRegisterVM(vm)
 }
 
 func CreateVM(name string) (*vbg.VBox, *vbg.VirtualMachine) {
@@ -47,8 +48,8 @@ func CreateVM(name string) (*vbg.VBox, *vbg.VirtualMachine) {
 	vm := &vbg.VirtualMachine{}
 	vm.Spec.Name = name
 	vm.Spec.OSType = vbg.Linux64
-	vm.Spec.CPU.Count = 1
-	vm.Spec.Memory.SizeMB = 512
+	vm.Spec.CPU.Count = 2
+	vm.Spec.Memory.SizeMB = 1000
 	vm.Spec.Disks = []vbg.Disk{disk1}
 
 	err = vb.CreateVM(vm)
@@ -60,6 +61,9 @@ func CreateVM(name string) (*vbg.VBox, *vbg.VirtualMachine) {
 	if err != nil {
 		fmt.Errorf("Failed registering vm")
 	}
+
+	vb.SetCPUCount(vm, vm.Spec.CPU.Count)
+	vb.SetMemory(vm, vm.Spec.Memory.SizeMB)
 
 	return vb, vm
 }
