@@ -13,12 +13,17 @@ func main() {
 	vmName := "node1"
 	dirname, vb := CreateVM(vmName)
 	fmt.Println(dirname)
-	vm, err := GetVMInfo(vmName)
+
+	vm, err := vb.VMInfo(vmName)
 	if err != nil {
 		log.Fatalf("Get info VM failed: %s", err.Error())
 	}
-	defer vb.DeleteVM(vm)
 	fmt.Printf(" name:%s\n OSType:%s\n CPUs:%d\n memory:%d\n", vm.Spec.Name, vm.Spec.OSType.Description, vm.Spec.CPU.Count, vm.Spec.Memory.SizeMB)
+
+	err = vb.DeleteVM(vm)
+	if err != nil {
+		log.Fatalf("Delete VM failed: %s", err.Error())
+	}
 }
 
 func CreateVM(vmName string) (string, *vbg.VBox) {
