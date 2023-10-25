@@ -1,10 +1,10 @@
-package main
+package provider
 
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
-func resource_VM() *schema.Resource {
+func resourceVM() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceVirtualBoxCreate,
 		Read:   resourceVirtualBoxRead,
