@@ -1,4 +1,4 @@
-package main
+package provider
 
 import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
@@ -7,7 +7,7 @@ import (
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		ResourcesMap: map[string]*schema.Resource{
-			"example_server": resourceServer(),
+			"resource_virtualBox": resourceVM(),
 		},
 	}
 }

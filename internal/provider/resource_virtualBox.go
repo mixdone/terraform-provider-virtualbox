@@ -4,7 +4,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 )
 
-func resourceServer() *schema.Resource {
+func resource_VM() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceVirtualBoxCreate,
 		Read:   resourceVirtualBoxRead,
@@ -22,7 +22,7 @@ func resourceServer() *schema.Resource {
 				Default:  "512mib",
 			},
 
-			"cpus": {
+			"CPUs": {
 				Type:     schema.TypeInt,
 				Optional: true,
 				Default:  2,
