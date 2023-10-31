@@ -25,7 +25,7 @@ func resourceVM() *schema.Resource {
 				Default:  128,
 			},
 
-			"CPUs": {
+			"cpus": {
 				Type:     schema.TypeInt,
 				Optional: true,
 				Default:  2,
@@ -36,8 +36,7 @@ func resourceVM() *schema.Resource {
 				Default:  "running",
 			},
 			"image": {
-				Type: schema.TypeString,
-				//Required: true,
+				Type:     schema.TypeString,
 				Optional: true,
 				ForceNew: true,
 			},
@@ -47,9 +46,9 @@ func resourceVM() *schema.Resource {
 
 func resourceVirtualBoxCreate(d *schema.ResourceData, m interface{}) error {
 	name := d.Get("name").(string)
-	CPUs := d.Get("CPUs").(int)
+	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
-	dirname, vb, vm := createvm.CreateVM(name, CPUs, memory)
+	dirname, vb, vm := createvm.CreateVM(name, cpus, memory)
 
 	fmt.Print(dirname, vb, vm)
 	return resourceVirtualBoxRead(d, m)
