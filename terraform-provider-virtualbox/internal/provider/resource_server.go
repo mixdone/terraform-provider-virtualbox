@@ -43,6 +43,17 @@ func resourceVM() *schema.Resource {
 				Optional: true,
 				ForceNew: true,
 			},
+			"url": {
+				Type:     schema.TypeString,
+				Optional: true,
+				ForceNew: true,
+			},
+			"user_data": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
+			},
+			"network_adapter": {},
 		},
 	}
 }
