@@ -52,8 +52,14 @@ func CreateVM(vmName string, CPUs, memory int) (string, *vbg.VBox, *vbg.VirtualM
 		log.Fatalf("Failed registering vm")
 	}
 
-	vb.SetCPUCount(vm, vm.Spec.CPU.Count)
-	vb.SetMemory(vm, vm.Spec.Memory.SizeMB)
+	err = vb.SetCPUCount(vm, vm.Spec.CPU.Count)
+	if err != nil {
+		return "", nil, nil
+	}
+	err = vb.SetMemory(vm, vm.Spec.Memory.SizeMB)
+	if err != nil {
+		return "", nil, nil
+	}
 
 	return dirName, vb, vm
 }

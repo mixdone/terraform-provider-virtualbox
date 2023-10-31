@@ -4,7 +4,7 @@
 provider "terraform-virtualbox.local/virtualboxprovider/virtualbox" {
   version     = "1.0.0"
   constraints = "~> 1.0.0"
-  hashes = [
+  hashes      = [
     "h1:fsW4gYeRs5P5viEqQ1jikJQEdTvHysW7X5LfVEWxwP0=",
   ]
 }
