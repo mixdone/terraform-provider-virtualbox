@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	vm "github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
 	"github.com/sirupsen/logrus"
@@ -71,6 +70,26 @@ func resourceVirtualBoxCreate(d *schema.ResourceData, m interface{}) error {
 }
 
 func resourceVirtualBoxRead(d *schema.ResourceData, m interface{}) error {
+	vb := vbg.NewVBox(vbg.Config{})
+	vm, err := vb.VMInfo(d.Id())
+	if err != nil {
+		d.SetId("")
+		return nil
+	}
+
+	err = d.Set("name", vm.Spec.Name)
+	if err != nil {
+		logrus.Fatalf("can't set name: %v", err.Error())
+	}
+	err = d.Set("CPUs", vm.Spec.CPU)
+	if err != nil {
+		logrus.Fatalf("can't set cpus: %v", err.Error())
+	}
+	err = d.Set("memory", vm.Spec.Memory.SizeMB)
+	if err != nil {
+		logrus.Fatalf("can't set memory: %v", err.Error())
+	}
+
 	return nil
 }
 
