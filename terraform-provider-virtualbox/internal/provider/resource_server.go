@@ -2,6 +2,7 @@ package provider
 
 import (
 	"fmt"
+
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	vm "github.com/mixdone/terraform-provider-virtualbox/internal/provider/createvm"
 	"github.com/sirupsen/logrus"
@@ -81,7 +82,7 @@ func resourceVirtualBoxRead(d *schema.ResourceData, m interface{}) error {
 	if err != nil {
 		logrus.Fatalf("can't set name: %v", err.Error())
 	}
-	err = d.Set("CPUs", vm.Spec.CPU)
+	err = d.Set("cpus", vm.Spec.CPU)
 	if err != nil {
 		logrus.Fatalf("can't set cpus: %v", err.Error())
 	}
