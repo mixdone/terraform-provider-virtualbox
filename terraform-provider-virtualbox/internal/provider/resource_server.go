@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	vm "github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
+	vm "github.com/mixdone/terraform-provider-virtualbox/internal/provider/createvm"
 	"github.com/sirupsen/logrus"
 	vbg "github.com/uruddarraju/virtualbox-go"
 )
