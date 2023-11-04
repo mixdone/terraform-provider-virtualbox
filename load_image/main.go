@@ -17,9 +17,9 @@ func main() {
 }
 
 func CreateVM(vmName string, CPUs, memory int) (string, *vbg.VBox, *vbg.VirtualMachine) {
-	dirName, err := os.MkdirTemp("", "vbm")
+	dirName, err := os.MkdirTemp("./", "VirtualBox VMs")
 	if err != nil {
-		log.Fatalf("Tempdir creation failed: %s", err.Error())
+		log.Fatalf("Tempdir creation failed %v", err.Error())
 	}
 	defer os.RemoveAll(dirName)
 
@@ -43,7 +43,7 @@ func CreateVM(vmName string, CPUs, memory int) (string, *vbg.VBox, *vbg.VirtualM
 	disk1 := vbg.Disk{
 		Path:       filepath.Join(dirName, "disk1.vdi"),
 		Format:     vbg.VDI,
-		SizeMB:     10,
+		SizeMB:     10000,
 		Type:       "hdd",
 		Controller: sata,
 	}
