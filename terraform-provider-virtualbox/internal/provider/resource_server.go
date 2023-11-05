@@ -5,8 +5,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	vm "github.com/mixdone/terraform-provider-virtualbox/internal/provider/createvm"
+	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
-	vbg "github.com/uruddarraju/virtualbox-go"
 )
 
 func resourceVM() *schema.Resource {
@@ -36,7 +36,7 @@ func resourceVM() *schema.Resource {
 			"status": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "running",
+				Default:  "poweroff",
 			},
 			"image": {
 				Type:     schema.TypeString,
@@ -53,13 +53,15 @@ func resourceVM() *schema.Resource {
 				Optional: true,
 				Default:  "",
 			},
-			"network_adapter": {},
 		},
 	}
 }
 
 func resourceVirtualBoxCreate(d *schema.ResourceData, m interface{}) error {
-	name := d.Get("name").(string)
+	name, ok := d.Get("name").(string)
+	if !ok {
+		logrus.Info("Convertion name to string failed")
+	}
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
 	dirname, vb, vm := vm.CreateVM(name, cpus, memory)
@@ -78,17 +80,21 @@ func resourceVirtualBoxRead(d *schema.ResourceData, m interface{}) error {
 		return nil
 	}
 
+	if err = setState(d, vm); err != nil {
+		logrus.Fatalf("Didn't manage to set VMState: %s", err.Error())
+	}
+
 	err = d.Set("name", vm.Spec.Name)
 	if err != nil {
-		logrus.Fatalf("can't set name: %v", err.Error())
+		logrus.Fatalf("Didn't manage to set name: %v", err.Error())
 	}
 	err = d.Set("cpus", vm.Spec.CPU)
 	if err != nil {
-		logrus.Fatalf("can't set cpus: %v", err.Error())
+		logrus.Fatalf("Didn't manage to set cpus: %v", err.Error())
 	}
 	err = d.Set("memory", vm.Spec.Memory.SizeMB)
 	if err != nil {
-		logrus.Fatalf("can't set memory: %v", err.Error())
+		logrus.Fatalf("Didn't manage to set memory: %v", err.Error())
 	}
 
 	return nil
@@ -114,4 +120,21 @@ func resourceVirtualBoxDelete(d *schema.ResourceData, m interface{}) error {
 		logrus.Fatalf("VM deletion failed: %s", err.Error())
 	}
 	return nil
+}
+
+func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
+	var err error
+	switch vm.Spec.State {
+	case vbg.Poweroff:
+		err = d.Set("status", "poweroff")
+	case vbg.Running:
+		err = d.Set("status", "running")
+	case vbg.Paused:
+		err = d.Set("status", "paused")
+	case vbg.Saved:
+		err = d.Set("status", "saved")
+	case vbg.Aborted:
+		err = d.Set("status", "aborted")
+	}
+	return err
 }
