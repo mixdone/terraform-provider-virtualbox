@@ -36,7 +36,7 @@ func resourceVM() *schema.Resource {
 			"status": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "poweroff",
+				Default:  "running",
 			},
 			"image": {
 				Type:     schema.TypeString,
