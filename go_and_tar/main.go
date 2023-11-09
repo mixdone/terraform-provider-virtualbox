@@ -98,6 +98,6 @@ func progressBar(done chan int64, totalSize int64, path string) {
 }
 
 func unpackImage(imageArchive, destDir string) error {
-	cmd := exec.Command("tar", "-xu", "-C", destDir, "-f", imageArchive)
+	cmd := exec.Command("tar", "-xv", "-C", destDir, "-f", imageArchive)
 	return cmd.Run()
 }
