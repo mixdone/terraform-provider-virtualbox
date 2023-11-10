@@ -100,13 +100,19 @@ func resourceVirtualBoxRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func poweroffVM(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
+func poweroffVM(d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) error {
 	switch vm.Spec.State {
 	case vbg.Poweroff, vbg.Aborted, vbg.Saved:
 		return nil
 	}
+
+	_, err := vb.Stop(vm)
+	if err != nil {
+		logrus.Fatalf("Unable to poweroff VM: %s", err.Error())
+	}
+
 	vm.Spec.State = vbg.Poweroff
-	err := setState(d, vm)
+	err = setState(d, vm)
 	return err
 }
 
@@ -117,9 +123,9 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 		logrus.Fatalf("VMInfo failed: %s", err.Error())
 	}
 
-	err = poweroffVM(d, vm)
+	err = poweroffVM(d, vm, vb)
 	if err != nil {
-		logrus.Fatalf("Unable to poweroff VM: %s", err.Error())
+		logrus.Fatalf("Setting state failed: %s", err.Error())
 	}
 
 	actualName := vm.Spec.Name
@@ -155,10 +161,15 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 	vm.UUID = id
 	d.SetId(vm.UUID)
 
+	_, err = vb.Start(vm)
+	if err != nil {
+		logrus.Fatalf("Unable to running VM: %s", err.Error())
+	}
+
 	vm.Spec.State = vbg.Running
 	err = setState(d, vm)
 	if err != nil {
-		logrus.Fatalf("Unable to running VM: %s", err.Error())
+		logrus.Fatalf("Setting state failed: %s", err.Error())
 	}
 
 	return resourceVirtualBoxRead(d, m)
