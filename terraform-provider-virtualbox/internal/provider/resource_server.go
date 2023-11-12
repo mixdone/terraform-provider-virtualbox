@@ -36,7 +36,7 @@ func resourceVM() *schema.Resource {
 			"status": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "running",
+				Default:  "poweroff",
 			},
 			"image": {
 				Type:     schema.TypeString,
@@ -100,7 +100,78 @@ func resourceVirtualBoxRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
+func poweroffVM(d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) error {
+	switch vm.Spec.State {
+	case vbg.Poweroff, vbg.Aborted, vbg.Saved:
+		return nil
+	}
+
+	_, err := vb.Stop(vm)
+	if err != nil {
+		logrus.Fatalf("Unable to poweroff VM: %s", err.Error())
+	}
+
+	vm.Spec.State = vbg.Poweroff
+	err = setState(d, vm)
+	return err
+}
+
 func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
+	vb := vbg.NewVBox(vbg.Config{})
+	vm, err := vb.VMInfo(d.Id())
+	if err != nil {
+		logrus.Fatalf("VMInfo failed: %s", err.Error())
+	}
+
+	err = poweroffVM(d, vm, vb)
+	if err != nil {
+		logrus.Fatalf("Setting state failed: %s", err.Error())
+	}
+
+	actualName := vm.Spec.Name
+	newName, ok := d.Get("name").(string)
+	if !ok {
+		logrus.Info("Convertion name to string failed")
+	}
+	if actualName != newName {
+		vm.Spec.Name = newName
+	}
+
+	actualMemory := vm.Spec.Memory.SizeMB
+	newMemory := d.Get("memory").(int)
+	if actualMemory != newMemory {
+		err = vb.SetMemory(vm, d.Get("memory").(int))
+		if err != nil {
+			logrus.Fatalf("Setting memory faild: %s", err.Error())
+		}
+		vm.Spec.Memory.SizeMB = newMemory
+	}
+
+	actualCPUCount := vm.Spec.CPU.Count
+	newCPUCount := d.Get("cpus").(int)
+	if actualCPUCount != newCPUCount {
+		err = vb.SetCPUCount(vm, d.Get("cpus").(int))
+		if err != nil {
+			logrus.Fatalf("Setting CPUs faild: %s", err.Error())
+		}
+		vm.Spec.CPU.Count = newCPUCount
+	}
+
+	id := vm.UUIDOrName()
+	vm.UUID = id
+	d.SetId(vm.UUID)
+
+	_, err = vb.Start(vm)
+	if err != nil {
+		logrus.Fatalf("Unable to running VM: %s", err.Error())
+	}
+
+	vm.Spec.State = vbg.Running
+	err = setState(d, vm)
+	if err != nil {
+		logrus.Fatalf("Setting state failed: %s", err.Error())
+	}
+
 	return resourceVirtualBoxRead(d, m)
 }
 
