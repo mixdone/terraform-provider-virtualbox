@@ -1,4 +1,4 @@
-package main
+package createvm
 
 import (
 	"bytes"
@@ -7,20 +7,13 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path"
 	"strconv"
 	"time"
 
+	"github.com/mholt/archiver"
 	"github.com/sirupsen/logrus"
 )
-
-func main() {
-	file := fileDownload("https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz", "./")
-	if err := unpackImage(file, "./"); err != nil {
-		logrus.Fatalf("unpacking failed: %s", err.Error())
-	}
-}
 
 func fileDownload(url, filepath string) string {
 	file := path.Base(url)
@@ -98,6 +91,12 @@ func progressBar(done chan int64, totalSize int64, path string) {
 }
 
 func unpackImage(imageArchive, destDir string) error {
-	cmd := exec.Command("tar", "-xv", "-C", destDir, "-f", imageArchive)
-	return cmd.Run()
+	a, err := os.Open(imageArchive)
+	if err != nil {
+		logrus.Fatalf("Open archive failed: %s", err.Error())
+		return err
+	}
+	defer a.Close()
+
+	return archiver.Unarchive(imageArchive, destDir)
 }
