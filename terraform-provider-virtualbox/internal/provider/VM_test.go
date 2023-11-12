@@ -56,14 +56,37 @@ func Test_createVM(t *testing.T) {
 	if err != nil {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
+	info, err := vb.VMInfo(vm.Spec.Name)
+	if err != nil {
+		logrus.Fatalf("Failed VMInfo %v", err.Error())
+	}
+	if info.Spec.Name != vm.Spec.Name ||
+		info.Spec.OSType != vm.Spec.OSType ||
+		info.Spec.CPU != vm.Spec.CPU ||
+		info.Spec.Memory != vm.Spec.Memory ||
+		info.Spec.Disks[0] != vm.Spec.Disks[0] {
+		logrus.Fatalf(
+			"Expected some fields to be auto created, have %v %v %v %v %+v",
+			info.Spec.Name,
+			info.Spec.OSType,
+			info.Spec.CPU,
+			info.Spec.Memory,
+			info.Spec.Disks,
+		)
+	}
 }
 
 func Test_define(t *testing.T) {
 
-	dirName, err := os.MkdirTemp("./", "VirtualBox VMs")
+	dir, err := os.UserHomeDir()
+	if err != nil {
+		logrus.Fatalf("dir creation failed %v", err.Error())
+	}
+	dirName, err := os.MkdirTemp(dir, "VirtualBox VMs")
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
+	defer os.RemoveAll(dir)
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{})
@@ -90,7 +113,10 @@ func Test_define(t *testing.T) {
 		Spec: *spec,
 	}
 
-	vb.EnsureDefaults(vm) // проверка на то, что ожидаемые значения доступны для правильного выполнения функции
+	_, err = vb.EnsureDefaults(vm) // проверка на то, что ожидаемые значения доступны для правильного выполнения функции
+	if err != nil {
+		logrus.Fatalf("Problem with defaults %v", err.Error())
+	}
 
 	ctx := context.Background()             // создаём фоновый контекст
 	context.WithTimeout(ctx, 1*time.Minute) // с таймаутом в 1 минуту
@@ -121,10 +147,15 @@ func Test_define(t *testing.T) {
 
 func Test_states(t *testing.T) {
 
-	dirName, err := os.MkdirTemp("./", "VirtualBox VMs")
+	dir, err := os.UserHomeDir()
+	if err != nil {
+		logrus.Fatalf("dir creation failed %v", err.Error())
+	}
+	dirName, err := os.MkdirTemp(dir, "VirtualBox VMs")
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
+	defer os.RemoveAll(dir)
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{})
@@ -152,7 +183,10 @@ func Test_states(t *testing.T) {
 		Spec: *spec,
 	}
 
-	vb.EnsureDefaults(vm) // проверка на то, что ожидаемые значения доступны для правильного выполнения функции
+	_, err = vb.EnsureDefaults(vm) // проверка на то, что ожидаемые значения доступны для правильного выполнения функции
+	if err != nil {
+		logrus.Fatalf("Problem with defaults %v", err.Error())
+	}
 
 	ctx := context.Background()             // создаём фоновый контекст
 	context.WithTimeout(ctx, 1*time.Minute) // с таймаутом в 1 минуту
