@@ -3,19 +3,21 @@ package provider
 import (
 	"context"
 	"fmt"
-	vbg "github.com/mixdone/virtualbox-go"
-	"github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	vbg "github.com/mixdone/virtualbox-go"
+	"github.com/sirupsen/logrus"
 )
 
 func Test_createVM(t *testing.T) {
 
 	logrus.Info("setup")
+	dir, _ := os.UserHomeDir()
 
-	dirName, err := os.MkdirTemp("./", "VirtualBox VMs")
+	dirName, err := os.MkdirTemp(dir, "VirtualBox VMs")
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
@@ -48,18 +50,19 @@ func Test_createVM(t *testing.T) {
 		Spec: *spec,
 	}
 
-	err = vb.CreateVM(vm)
-	if err != nil {
+	if err := vb.CreateVM(vm); err != nil {
 		logrus.Fatalf("Failed creating %v", err.Error())
 	}
-	err = vb.RegisterVM(vm)
-	if err != nil {
+
+	if err := vb.RegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
+
 	info, err := vb.VMInfo(vm.Spec.Name)
 	if err != nil {
 		logrus.Fatalf("Failed VMInfo %v", err.Error())
 	}
+
 	if info.Spec.Name != vm.Spec.Name ||
 		info.Spec.OSType != vm.Spec.OSType ||
 		info.Spec.CPU != vm.Spec.CPU ||
@@ -78,15 +81,11 @@ func Test_createVM(t *testing.T) {
 
 func Test_define(t *testing.T) {
 
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		logrus.Fatalf("dir creation failed %v", err.Error())
-	}
+	dir, _ := os.UserHomeDir()
 	dirName, err := os.MkdirTemp(dir, "VirtualBox VMs")
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
-	defer os.RemoveAll(dir)
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{})
@@ -146,16 +145,11 @@ func Test_define(t *testing.T) {
 }
 
 func Test_states(t *testing.T) {
-
-	dir, err := os.UserHomeDir()
-	if err != nil {
-		logrus.Fatalf("dir creation failed %v", err.Error())
-	}
+	dir, _ := os.UserHomeDir()
 	dirName, err := os.MkdirTemp(dir, "VirtualBox VMs")
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
-	defer os.RemoveAll(dir)
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{})
@@ -202,18 +196,13 @@ func Test_states(t *testing.T) {
 		logrus.Fatalf("VM is not discoverable after creation %s", vm.Spec.Name)
 	}
 
-	_, err = vb.Start(vm)
-	if err != nil {
+	if _, err = vb.Start(vm); err != nil {
 		logrus.Fatalf("Failed to start %s: error %v", vm.Spec.Name, err.Error())
 	}
 
-	_, err = vb.Stop(vm)
-	if err != nil {
+	if _, err = vb.Stop(vm); err != nil {
 		logrus.Fatalf("Failed to stop %s: error %v", vm.Spec.Name, err.Error())
 	}
-
-	_ = nvm
-	_ = err
 }
 
 func Test_CreatePath(t *testing.T) {
@@ -233,20 +222,19 @@ func Test_CreatePath(t *testing.T) {
 		Spec: *spec,
 	}
 
-	err := vb.CreateVM(vm)
-	if err != nil {
+	if err := vb.CreateVM(vm); err != nil {
 		logrus.Fatalf("Failed creating %v", err.Error())
 	}
-	err = vb.RegisterVM(vm)
-	if err != nil {
+
+	if err := vb.RegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
-	err = vb.UnRegisterVM(vm)
-	if err != nil {
+
+	if err := vb.UnRegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed unregister %v", err.Error())
 	}
-	err = vb.DeleteVM(vm)
-	if err != nil {
+
+	if err := vb.DeleteVM(vm); err != nil {
 		logrus.Fatalf("Failed delete %v", err.Error())
 	}
 }

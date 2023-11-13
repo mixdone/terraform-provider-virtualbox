@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
+	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
-	vbg "github.com/uruddarraju/virtualbox-go"
 )
 
 func CreateVM(vmName string, CPUs int, memory int) (string, *vbg.VBox, *vbg.VirtualMachine) {

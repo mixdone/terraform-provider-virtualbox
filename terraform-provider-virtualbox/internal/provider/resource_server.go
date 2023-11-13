@@ -62,6 +62,7 @@ func resourceVirtualBoxCreate(d *schema.ResourceData, m interface{}) error {
 	if !ok {
 		logrus.Info("Convertion name to string failed")
 	}
+
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
 	dirname, vb, vm := vm.CreateVM(name, cpus, memory)
@@ -77,27 +78,26 @@ func resourceVirtualBoxRead(d *schema.ResourceData, m interface{}) error {
 	vm, err := vb.VMInfo(d.Id())
 	if err != nil {
 		d.SetId("")
-		return nil
+		return err
 	}
 
 	if err = setState(d, vm); err != nil {
 		logrus.Fatalf("Didn't manage to set VMState: %s", err.Error())
 	}
 
-	err = d.Set("name", vm.Spec.Name)
-	if err != nil {
+	if err = d.Set("name", vm.Spec.Name); err != nil {
 		logrus.Fatalf("Didn't manage to set name: %v", err.Error())
 	}
-	err = d.Set("cpus", vm.Spec.CPU)
-	if err != nil {
+
+	if err = d.Set("cpus", vm.Spec.CPU); err != nil {
 		logrus.Fatalf("Didn't manage to set cpus: %v", err.Error())
 	}
-	err = d.Set("memory", vm.Spec.Memory.SizeMB)
-	if err != nil {
+
+	if err = d.Set("memory", vm.Spec.Memory.SizeMB); err != nil {
 		logrus.Fatalf("Didn't manage to set memory: %v", err.Error())
 	}
 
-	return nil
+	return err
 }
 
 func poweroffVM(d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) error {
@@ -106,25 +106,24 @@ func poweroffVM(d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) er
 		return nil
 	}
 
-	_, err := vb.Stop(vm)
-	if err != nil {
+	if _, err := vb.Stop(vm); err != nil {
 		logrus.Fatalf("Unable to poweroff VM: %s", err.Error())
+		return err
 	}
 
 	vm.Spec.State = vbg.Poweroff
-	err = setState(d, vm)
-	return err
+	return setState(d, vm)
 }
 
 func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 	vb := vbg.NewVBox(vbg.Config{})
 	vm, err := vb.VMInfo(d.Id())
+
 	if err != nil {
 		logrus.Fatalf("VMInfo failed: %s", err.Error())
 	}
 
-	err = poweroffVM(d, vm, vb)
-	if err != nil {
+	if err = poweroffVM(d, vm, vb); err != nil {
 		logrus.Fatalf("Setting state failed: %s", err.Error())
 	}
 
@@ -140,8 +139,7 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 	actualMemory := vm.Spec.Memory.SizeMB
 	newMemory := d.Get("memory").(int)
 	if actualMemory != newMemory {
-		err = vb.SetMemory(vm, d.Get("memory").(int))
-		if err != nil {
+		if err = vb.SetMemory(vm, d.Get("memory").(int)); err != nil {
 			logrus.Fatalf("Setting memory faild: %s", err.Error())
 		}
 		vm.Spec.Memory.SizeMB = newMemory
@@ -150,8 +148,7 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 	actualCPUCount := vm.Spec.CPU.Count
 	newCPUCount := d.Get("cpus").(int)
 	if actualCPUCount != newCPUCount {
-		err = vb.SetCPUCount(vm, d.Get("cpus").(int))
-		if err != nil {
+		if err = vb.SetCPUCount(vm, d.Get("cpus").(int)); err != nil {
 			logrus.Fatalf("Setting CPUs faild: %s", err.Error())
 		}
 		vm.Spec.CPU.Count = newCPUCount
@@ -161,14 +158,12 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 	vm.UUID = id
 	d.SetId(vm.UUID)
 
-	_, err = vb.Start(vm)
-	if err != nil {
+	if _, err = vb.Start(vm); err != nil {
 		logrus.Fatalf("Unable to running VM: %s", err.Error())
 	}
 
 	vm.Spec.State = vbg.Running
-	err = setState(d, vm)
-	if err != nil {
+	if err = setState(d, vm); err != nil {
 		logrus.Fatalf("Setting state failed: %s", err.Error())
 	}
 
@@ -190,7 +185,7 @@ func resourceVirtualBoxDelete(d *schema.ResourceData, m interface{}) error {
 	if err = vb.DeleteVM(vm); err != nil {
 		logrus.Fatalf("VM deletion failed: %s", err.Error())
 	}
-	return nil
+	return err
 }
 
 func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
