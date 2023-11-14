@@ -14,6 +14,7 @@ func resourceVM() *schema.Resource {
 		Create: resourceVirtualBoxCreate,
 		Read:   resourceVirtualBoxRead,
 		Update: resourceVirtualBoxUpdate,
+		Exists: resourceVirtualBoxExists,
 		Delete: resourceVirtualBoxDelete,
 
 		Schema: map[string]*schema.Schema{
@@ -168,6 +169,19 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	return resourceVirtualBoxRead(d, m)
+}
+
+func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
+	vb := vbg.NewVBox(vbg.Config{})
+	_, err := vb.VMInfo(d.Id())
+	switch err {
+	case nil:
+		return true, nil
+	case vbg.ErrMachineNotExist:
+		return false, nil
+	default:
+		return false, fmt.Errorf("VMInfo failed: %s", err)
+	}
 }
 
 func resourceVirtualBoxDelete(d *schema.ResourceData, m interface{}) error {
