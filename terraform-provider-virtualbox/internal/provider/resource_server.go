@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
-	vm "github.com/mixdone/terraform-provider-virtualbox/internal/provider/createvm"
+	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
 	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
 )
@@ -65,7 +65,8 @@ func resourceVirtualBoxCreate(d *schema.ResourceData, m interface{}) error {
 
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
-	dirname, vb, vm := vm.CreateVM(name, cpus, memory)
+
+	dirname, vb, vm := pkg.CreateVM(name, cpus, memory)
 
 	d.SetId(vm.UUID)
 
@@ -83,21 +84,25 @@ func resourceVirtualBoxRead(d *schema.ResourceData, m interface{}) error {
 
 	if err = setState(d, vm); err != nil {
 		logrus.Fatalf("Didn't manage to set VMState: %s", err.Error())
+		return err
 	}
 
 	if err = d.Set("name", vm.Spec.Name); err != nil {
 		logrus.Fatalf("Didn't manage to set name: %v", err.Error())
+		return err
 	}
 
 	if err = d.Set("cpus", vm.Spec.CPU); err != nil {
 		logrus.Fatalf("Didn't manage to set cpus: %v", err.Error())
+		return err
 	}
 
 	if err = d.Set("memory", vm.Spec.Memory.SizeMB); err != nil {
 		logrus.Fatalf("Didn't manage to set memory: %v", err.Error())
+		return err
 	}
 
-	return err
+	return nil
 }
 
 func poweroffVM(d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) error {
@@ -121,10 +126,12 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 
 	if err != nil {
 		logrus.Fatalf("VMInfo failed: %s", err.Error())
+		return err
 	}
 
 	if err = poweroffVM(d, vm, vb); err != nil {
 		logrus.Fatalf("Setting state failed: %s", err.Error())
+		return err
 	}
 
 	actualName := vm.Spec.Name
@@ -141,6 +148,7 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 	if actualMemory != newMemory {
 		if err = vb.SetMemory(vm, d.Get("memory").(int)); err != nil {
 			logrus.Fatalf("Setting memory faild: %s", err.Error())
+			return err
 		}
 		vm.Spec.Memory.SizeMB = newMemory
 	}
@@ -150,6 +158,7 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 	if actualCPUCount != newCPUCount {
 		if err = vb.SetCPUCount(vm, d.Get("cpus").(int)); err != nil {
 			logrus.Fatalf("Setting CPUs faild: %s", err.Error())
+			return err
 		}
 		vm.Spec.CPU.Count = newCPUCount
 	}
@@ -160,11 +169,13 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 
 	if _, err = vb.Start(vm); err != nil {
 		logrus.Fatalf("Unable to running VM: %s", err.Error())
+		return err
 	}
 
 	vm.Spec.State = vbg.Running
 	if err = setState(d, vm); err != nil {
 		logrus.Fatalf("Setting state failed: %s", err.Error())
+		return err
 	}
 
 	return resourceVirtualBoxRead(d, m)
@@ -176,16 +187,19 @@ func resourceVirtualBoxDelete(d *schema.ResourceData, m interface{}) error {
 
 	if err != nil {
 		logrus.Fatalf("VMInfo failed: %s", err.Error())
+		return err
 	}
 
 	if err = vb.UnRegisterVM(vm); err != nil {
 		logrus.Fatalf("VM Unregiste failed: %s", err.Error())
+		return err
 	}
 
 	if err = vb.DeleteVM(vm); err != nil {
 		logrus.Fatalf("VM deletion failed: %s", err.Error())
+		return err
 	}
-	return err
+	return nil
 }
 
 func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
