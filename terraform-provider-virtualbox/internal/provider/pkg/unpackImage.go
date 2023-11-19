@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// download file from url
 func FileDownload(url, filepath string) (string, error) {
 	file := path.Base(url)
 	logrus.Printf("Dowloading file %s from %s\n", file, url)
@@ -102,13 +104,25 @@ func ProgressBar(done chan int64, totalSize int64, path string) {
 	}
 }
 
-func UnpackImage(imageArchive, destDir string) error {
+// return path to image or virtual disk and error
+func UnpackImage(imageArchive, destDir string) (string, error) {
 	a, err := os.Open(imageArchive)
 	if err != nil {
 		logrus.Fatalf("Open archive failed: %s", err.Error())
-		return err
+		return "", err
 	}
 	defer a.Close()
 
-	return archiver.Unarchive(imageArchive, destDir)
+	if err = archiver.Unarchive(imageArchive, destDir); err != nil {
+		logrus.Fatalf("Unarchiving failed: %s", err.Error())
+		return "", err
+	}
+
+	files, err := os.ReadDir(destDir)
+	if err != nil {
+		logrus.Fatalf("Read dir failde: %s", err.Error())
+		return "", err
+	}
+
+	return filepath.Join(destDir, files[0].Name()), nil
 }

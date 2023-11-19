@@ -1,7 +1,7 @@
 package provider
 
 import (
-	"fmt"
+	"os"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
@@ -65,12 +65,21 @@ func resourceVirtualBoxCreate(d *schema.ResourceData, m interface{}) error {
 
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
+	image := d.Get("image").(string)
+	homeDir, _ := os.UserHomeDir()
+	destDir, err := os.MkdirTemp(homeDir, "VirtualBox VMs")
+	if err != nil {
+		logrus.Fatalf("Dir creation failed: %s", err.Error())
+		return err
+	}
 
-	dirname, vb, vm := pkg.CreateVM(name, cpus, memory)
+	vm, err := pkg.CreateVM(name, cpus, memory, image, destDir, 0)
+	if err != nil {
+		logrus.Fatalf("Creation failde: %s", err.Error())
+		return err
+	}
 
 	d.SetId(vm.UUID)
-
-	fmt.Print(dirname, vb, vm)
 	return resourceVirtualBoxRead(d, m)
 }
 
