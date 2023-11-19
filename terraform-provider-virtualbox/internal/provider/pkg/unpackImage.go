@@ -33,6 +33,7 @@ func FileDownload(url, filepath string) (string, error) {
 		logrus.Fatalf("Http head failed: %s", err.Error())
 		return "", err
 	}
+	defer headResp.Body.Close()
 
 	fileSize, err := strconv.Atoi(headResp.Header.Get("Content-Length"))
 	if err != nil {
@@ -48,6 +49,7 @@ func FileDownload(url, filepath string) (string, error) {
 		logrus.Fatalf("Http get failed: %s", err.Error())
 		return "", err
 	}
+	defer resp.Body.Close()
 
 	n, err := io.Copy(out, resp.Body)
 	if err != nil {

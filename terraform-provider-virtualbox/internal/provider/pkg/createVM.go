@@ -60,14 +60,10 @@ func CreateVM_using_VDI(vmName string, CPUs int, memory int, dirName, diskVDI st
 		return nil, err
 	}
 
-	logrus.Infoln("Created VM with CPU and memory", vm.Spec.CPU, vm.Spec.Memory)
-
 	if err := vb.RegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed registering vm")
 		return nil, err
 	}
-
-	logrus.Infoln("Register VM with CPU and memory", vm.Spec.CPU, vm.Spec.Memory)
 
 	vb.SetCPUCount(vm, vm.Spec.CPU.Count)
 	vb.SetMemory(vm, vm.Spec.Memory.SizeMB)
@@ -221,13 +217,9 @@ func CreateVM(vmName string, CPUs int, memory int) (string, *vbg.VBox, *vbg.Virt
 		logrus.Infof("VM creation failed: %s", err.Error())
 	}
 
-	logrus.Infoln("Created VM with CPU and memory", vm.Spec.CPU, vm.Spec.Memory)
-
 	if err := vb.RegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed registering vm")
 	}
-
-	logrus.Infoln("Register VM with CPU and memory", vm.Spec.CPU, vm.Spec.Memory)
 
 	vb.SetCPUCount(vm, vm.Spec.CPU.Count)
 	vb.SetMemory(vm, vm.Spec.Memory.SizeMB)
