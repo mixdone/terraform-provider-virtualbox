@@ -21,7 +21,7 @@ fmtcheck:
 
 lint:
 	@echo "==> Checking source code against linters..."
-	golangci-lint run ./...
+	golangci-lint run $(go list -f '{{.Dir}}/...' -m | xargs))
 
 test:
 	go test ./...
