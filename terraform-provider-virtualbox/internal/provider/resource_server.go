@@ -2,6 +2,7 @@ package provider
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
 	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
@@ -58,22 +59,55 @@ func resourceVM() *schema.Resource {
 }
 
 func resourceVirtualBoxCreate(d *schema.ResourceData, m interface{}) error {
-	name, ok := d.Get("name").(string)
-	if !ok {
-		logrus.Info("Convertion name to string failed")
-	}
-
+	name := d.Get("name").(string)
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
-	image := d.Get("image").(string)
-	homeDir, _ := os.UserHomeDir()
-	destDir, err := os.MkdirTemp(homeDir, "VirtualBox VMs")
-	if err != nil {
-		logrus.Fatalf("Dir creation failed: %s", err.Error())
-		return err
+
+	homedir, _ := os.UserHomeDir()
+	machinesDir := filepath.Join(homedir, "VirtualMachines")
+	installedData := filepath.Join(homedir, "InstalledData")
+
+	if err := os.MkdirAll(machinesDir, 0740); err != nil {
+		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
+	}
+	if err := os.MkdirAll(installedData, 0740); err != nil {
+		logrus.Fatalf("Creation InstalledData foldier failed: %s", err.Error())
 	}
 
-	vm, err := pkg.CreateVM(name, cpus, memory, image, destDir, 0)
+	var ltype pkg.LoadingType
+
+	im, ok := d.GetOk("image")
+	image := im.(string)
+	if !ok {
+		url, ok := d.GetOk("url")
+		if !ok {
+			ltype = 2
+		} else {
+			filename, err := pkg.FileDownload(url.(string), homedir)
+			if err != nil {
+				logrus.Fatalf("File dowload failed: %s", err.Error())
+				return err
+			}
+
+			if filepath.Ext(filepath.Base(filename)) != ".iso" {
+				imagePath, err := pkg.UnpackImage(filename, installedData)
+				if err != nil {
+					logrus.Fatalf("File unpacking failed")
+				}
+				image = imagePath
+			} else {
+				image = filename
+			}
+		}
+	} else {
+		if filepath.Ext(filepath.Base(image)) == ".iso" {
+			ltype = 1
+		} else {
+			ltype = 0
+		}
+	}
+
+	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype)
 	if err != nil {
 		logrus.Fatalf("Creation failde: %s", err.Error())
 		return err

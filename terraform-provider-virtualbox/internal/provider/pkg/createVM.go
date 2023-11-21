@@ -7,17 +7,17 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type loadingType int
+type LoadingType int
 
 // now here 3 types of loading
 const (
-	vdiLoading loadingType = iota
+	vdiLoading LoadingType = iota
 	imageloading
 	empty
 )
 
 // create VM with chosen loading type
-func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype loadingType) (*vbg.VirtualMachine, error) {
+func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
 	var vdiDisk string
 	switch ltype {
