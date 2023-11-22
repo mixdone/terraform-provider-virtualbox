@@ -1,48 +1,20 @@
-name: CI
+name: GitHub Actions CI
 
 on:
-  # Only build when pushed to main
   push:
-    branches:
-      - main
-  # Build all pull requests
-  pull_request:
+    branches: [main]
+  pull_request: {}
 
 jobs:
-  lint:
-    name: lint
+  ci:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
         with:
-          fetch-depth: 1
-      - name: Lint with golangci-lint
-        uses: golangci/golangci-lint-action@v3
-
-  build:
-    name: build
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        # We only support the latest version of all platforms.
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macOS-latest
-        go:
-          - "1.19"
-          - "1.20"
-    steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 1
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ matrix.go }}
-      - name: Build
-        run: go build ./...
-      - name: Run Unit Tests
-        run: go test ./...
+          go-version: '1.21'
+      - run: make tools
+      - run: make lint
+      - run: make website-lint
+      - run: make build
+      - run: make test
