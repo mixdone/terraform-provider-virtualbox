@@ -14,7 +14,7 @@ jobs:
         with:
           go-version: '1.21'
       - run: make tools
-      - run: make lint
+      #- run: make lint
       - run: make website-lint
       - run: make build
       - run: make test

@@ -19,9 +19,9 @@ fmt:
 fmtcheck:
 	@sh -c "'$(CURDIR)/scripts/gofmtcheck.sh'"
 
-#lint:
-#	@echo "==> Checking source code against linters..."
-#	golangci-lint run $(go list -f '{{.Dir}}/...' -m | xargs)
+lint:
+	@echo "==> Checking source code against linters..."
+	golangci-lint run $(go list -f '{{.Dir}}/...' -m | xargs)
 
 test:
 	go test ./...
