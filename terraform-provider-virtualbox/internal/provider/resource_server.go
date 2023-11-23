@@ -107,7 +107,7 @@ func poweroffVM(d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) er
 		return nil
 	}
 
-	if _, err := vb.Stop(vm); err != nil {
+	if _, err := vb.ControlVM(vm, "poweroff"); err != nil {
 		logrus.Fatalf("Unable to poweroff VM: %s", err.Error())
 		return err
 	}
@@ -117,6 +117,8 @@ func poweroffVM(d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) er
 }
 
 func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
+	parameters := []string{}
+
 	vb := vbg.NewVBox(vbg.Config{})
 	vm, err := vb.VMInfo(d.Id())
 
@@ -134,33 +136,36 @@ func resourceVirtualBoxUpdate(d *schema.ResourceData, m interface{}) error {
 		logrus.Info("Convertion name to string failed")
 	}
 	if actualName != newName {
+		parameters = append(parameters, "name")
 		vm.Spec.Name = newName
 	}
 
 	actualMemory := vm.Spec.Memory.SizeMB
 	newMemory := d.Get("memory").(int)
 	if actualMemory != newMemory {
-		if err = vb.SetMemory(vm, d.Get("memory").(int)); err != nil {
-			logrus.Fatalf("Setting memory faild: %s", err.Error())
-		}
+		parameters = append(parameters, "memory")
 		vm.Spec.Memory.SizeMB = newMemory
 	}
 
 	actualCPUCount := vm.Spec.CPU.Count
 	newCPUCount := d.Get("cpus").(int)
 	if actualCPUCount != newCPUCount {
-		if err = vb.SetCPUCount(vm, d.Get("cpus").(int)); err != nil {
-			logrus.Fatalf("Setting CPUs faild: %s", err.Error())
-		}
+		parameters = append(parameters, "cpus")
 		vm.Spec.CPU.Count = newCPUCount
+	}
+
+	err = vb.ModifyVM(vm, parameters)
+	if err != nil {
+		logrus.Fatalf("ModifyVM failed: %s", err.Error())
 	}
 
 	id := vm.UUIDOrName()
 	vm.UUID = id
 	d.SetId(vm.UUID)
 
-	if _, err = vb.Start(vm); err != nil {
+	if _, err := vb.ControlVM(vm, "running"); err != nil {
 		logrus.Fatalf("Unable to running VM: %s", err.Error())
+		return err
 	}
 
 	vm.Spec.State = vbg.Running
