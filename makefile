@@ -10,6 +10,7 @@ tools:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.1
 
 build: fmtcheck
+	go mod init
 	go build -o $(GOBIN)/$(PROJECTNAME) $(GOFILES)
 
 fmt:
