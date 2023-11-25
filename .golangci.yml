@@ -1,0 +1,24 @@
+run:
+  deadline: 3m
+  modules-download-mode: vendor
+
+issues:
+  max-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gofmt
+    - gosimple
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unconvert
+    - unused
+    - vet
+
+linters-settings:
+  errcheck:
+    ignore: github.com/hashicorp/terraform-plugin-sdk/helper/schema:ForceNew|Set,fmt:.*,io:Close
