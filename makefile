@@ -10,7 +10,7 @@ tools:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.1
 
 build: fmtcheck
-	go install
+	go build ./...
 
 fmt:
 	@echo "==> Fixing source code with gofmt..."
