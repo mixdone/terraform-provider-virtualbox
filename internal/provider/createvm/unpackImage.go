@@ -41,9 +41,9 @@ func fileDownload(url, filepath string) string {
 	done := make(chan int64)
 	go progressBar(done, int64(fileSize), path.String())
 
-	resp, err := http.Get(url)
+	resp, _ := http.Get(url)
 
-	n, err := io.Copy(out, resp.Body)
+	n, _ := io.Copy(out, resp.Body)
 
 	done <- n
 	fmt.Print(" 100%\n")
