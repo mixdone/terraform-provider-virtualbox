@@ -104,12 +104,12 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	logrus.Infoln("Creating VM with CPU and memory", vm.Spec.CPU, vm.Spec.Memory)
 
 	if err := vb.CreateVM(vm); err != nil {
-		logrus.Fatalf("VM creation failed: %s", err.Error())
+		logrus.Errorf("VM creation failed: %s", err.Error())
 		return nil, err
 	}
 
 	if err := vb.RegisterVM(vm); err != nil {
-		logrus.Fatalf("Failed registering vm")
+		logrus.Errorf("Failed registering vm")
 		return nil, err
 	}
 
@@ -120,12 +120,12 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	// Connecting a disk to a virtual machine
 	if ltype != empty {
 		if err := vb.AddStorageController(vm, storageController1); err != nil {
-			logrus.Fatalf("Add SATA controller error: %s", err.Error())
+			logrus.Errorf("Add SATA controller error: %s", err.Error())
 			return nil, err
 		}
 
 		if err := vb.AttachStorage(vm, &disk_VDI); err != nil {
-			logrus.Fatalf("Attach error: %s", err.Error())
+			logrus.Errorf("Attach error: %s", err.Error())
 			return nil, err
 		}
 	}
@@ -133,12 +133,12 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	if ltype == imageloading {
 		// Connecting the installation disk image
 		if err := vb.AddStorageController(vm, storageController2); err != nil {
-			logrus.Fatalf("Add IDE controller error: %s", err.Error())
+			logrus.Errorf("Add IDE controller error: %s", err.Error())
 			return nil, err
 		}
 
 		if err := vb.AttachStorage(vm, &disk_ISO); err != nil {
-			logrus.Fatalf("Attach error %s", err.Error())
+			logrus.Errorf("Attach error %s", err.Error())
 			return nil, err
 		}
 	}
