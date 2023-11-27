@@ -10,8 +10,7 @@ tools:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.1
 
 build: fmtcheck
-	go mod init
-	go build -o $(GOBIN)/$(PROJECTNAME) $(GOFILES)
+	go build ./...
 
 fmt:
 	@echo "==> Fixing source code with gofmt..."
@@ -24,8 +23,9 @@ lint:
 	@echo "==> Checking source code against linters..."
 	golangci-lint run ./...
 
-test: fmtcheck
-	go test -i -race -coverprofile=coverage.txt -covermode=atomic || exit 1
+test:
+	go test ./...
+	# commenting this out for release tooling, please run testacc instead
 
 testacc: fmtcheck
 	TF_ACC=1 go test $(TEST) -v $(TESTARGS) -timeout 120m
