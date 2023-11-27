@@ -284,6 +284,8 @@ github.com/mitchellh/reflectwalk v1.0.1 h1:FVzMWA5RllMAKIdUSC8mdWo3XtwoecrH79BY7
 github.com/mitchellh/reflectwalk v1.0.1/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
 github.com/mixdone/virtualbox-go v0.0.0-20231105070637-c6960ebd1baf h1:IBxTPZf57/pEaChijs0hxUziIqKpxyXfb06zffedJ+g=
 github.com/mixdone/virtualbox-go v0.0.0-20231105070637-c6960ebd1baf/go.mod h1:L+/R9lfDhgywDwybZn2mAS9ZPyZROyxkBihq9kdm/A8=
+github.com/mixdone/virtualbox-go v0.0.0-20231122030727-bdf922f4749f h1:OE/pgf9FvAfevSLAfJG0c0qyzkxRkBp/X3FyhNW7Wsc=
+github.com/mixdone/virtualbox-go v0.0.0-20231122030727-bdf922f4749f/go.mod h1:L+/R9lfDhgywDwybZn2mAS9ZPyZROyxkBihq9kdm/A8=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
 github.com/nwaples/rardecode v1.1.3 h1:cWCaZwfM5H7nAD6PyEdcVnczzV8i/JtotnyW/dD9lEc=
 github.com/nwaples/rardecode v1.1.3/go.mod h1:5DzqNKiOdpKKBH87u8VlvAnPZMXcGRhxWkRpHbbfGS0=
