@@ -4,6 +4,10 @@ macOS_build: set_log
 	go build -o terraform-provider-virtualbox
 	cp terraform-provider-virtualbox ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/darwin_arm64
 
+windows_build: set_log
+	go build -o terraform-provider-virtualbox.exe
+	cp terraform-provider-virtualbox.exe  ~\AppData\Roaming\terraform.d\plugins\terraform-virtualbox.local\virtualboxprovider\virtualbox\1.0.0\windows_386
+
 set_log:
 	export TF_LOG=TRACE
 	export TF_LOG_PATH="./config/log.txt"
