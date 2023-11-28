@@ -1,4 +1,4 @@
-rebuild: clean macOS_build set_log
+rebuild: clean macOS_build
 
 macOS_build: set_log
 	go build -o terraform-provider-virtualbox

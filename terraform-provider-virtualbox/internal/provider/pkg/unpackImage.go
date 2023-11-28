@@ -9,7 +9,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/mholt/archiver"
@@ -17,11 +16,11 @@ import (
 )
 
 // download file from url
-func FileDownload(url, filepath string) (string, error) {
+func FileDownload(url, fpath string) (string, error) {
 	file := path.Base(url)
 	logrus.Printf("Dowloading file %s from %s\n", file, url)
 	var path bytes.Buffer
-	path.WriteString(filepath + "/" + file)
+	path.WriteString(filepath.Join(fpath, file))
 
 	out, err := os.Create(path.String())
 	if err != nil {
@@ -37,14 +36,14 @@ func FileDownload(url, filepath string) (string, error) {
 	}
 	defer headResp.Body.Close()
 
-	fileSize, err := strconv.Atoi(headResp.Header.Get("Content-Length"))
-	if err != nil {
-		logrus.Fatalf("Strconv failed: %s", err.Error())
-		return "", err
-	}
+	// fileSize, err := strconv.Atoi(headResp.Header.Get("Content-Length"))
+	// if err != nil {
+	// 	logrus.Fatalf("Strconv failed: %s", err.Error())
+	// 	return "", err
+	// }
 
-	done := make(chan int64)
-	go ProgressBar(done, int64(fileSize), path.String())
+	//done := make(chan int64)
+	//go ProgressBar(done, int64(fileSize), path.String())
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -53,16 +52,16 @@ func FileDownload(url, filepath string) (string, error) {
 	}
 	defer resp.Body.Close()
 
-	n, err := io.Copy(out, resp.Body)
+	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		logrus.Fatalf("Copy failed: %s", err.Error())
 		return "", err
 	}
 
-	done <- n
+	//done <- n
 	fmt.Print(" 100%\n")
 	logrus.Print("Downloading completed")
-	return filepath + file, nil
+	return path.String(), nil
 }
 
 func ProgressBar(done chan int64, totalSize int64, path string) {

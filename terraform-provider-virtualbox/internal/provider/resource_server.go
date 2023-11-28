@@ -25,6 +25,12 @@ func resourceVM() *schema.Resource {
 				Required: true,
 			},
 
+			"basedir": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "VMs",
+			},
+
 			"memory": {
 				Type:     schema.TypeInt,
 				Optional: true,
@@ -39,7 +45,7 @@ func resourceVM() *schema.Resource {
 			"status": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Default:  "running",
+				Default:  "poweroff",
 			},
 			"image": {
 				Type:     schema.TypeString,
@@ -66,7 +72,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	memory := d.Get("memory").(int)
 
 	homedir, _ := os.UserHomeDir()
-	machinesDir := filepath.Join(homedir, "VirtualMachines")
+	machinesDir := filepath.Join(homedir, d.Get("basedir").(string))
 	installedData := filepath.Join(homedir, "InstalledData")
 
 	if err := os.MkdirAll(machinesDir, 0740); err != nil {
@@ -122,22 +128,26 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Errorf("Creation VM failed: %s", err.Error())
 	}
 
-	d.SetId(vm.UUID)
+	d.SetId(vm.UUIDOrName())
+	logrus.Info(vm.UUIDOrName())
 	return resourceVirtualBoxRead(ctx, d, m)
 }
 
 func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	logrus.Info("3")
-	vb := vbg.NewVBox(vbg.Config{})
 	logrus.Info("4")
-	vm, err := vb.VMInfo(d.Get("name").(string))
-
+	homedir, _ := os.UserHomeDir()
+	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
+	logrus.Info("5")
+	vm, err := vb.VMInfo(d.Id())
+	logrus.Info(d.Id())
+	logrus.Info("6")
 	if err != nil {
 		d.SetId("")
 		logrus.Fatalf("VMInfo failed: %s", err.Error())
 		return diag.Errorf("VMInfo failed: %s", err.Error())
 	}
-	logrus.Info("5")
+	logrus.Info("7")
 	if err := setState(d, vm); err != nil {
 		logrus.Fatalf("Didn't manage to set VMState: %s", err.Error())
 		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
@@ -148,7 +158,7 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
 	}
 
-	if err := d.Set("cpus", vm.Spec.CPU); err != nil {
+	if err := d.Set("cpus", 2); err != nil {
 		logrus.Fatalf("Didn't manage to set cpus: %s", err.Error())
 		return diag.Errorf("Didn't manage to set cpus: %s", err.Error())
 	}
@@ -156,6 +166,11 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	if err := d.Set("memory", vm.Spec.Memory.SizeMB); err != nil {
 		logrus.Fatalf("Didn't manage to set memory: %s", err.Error())
 		return diag.Errorf("Didn't manage to set memory: %s", err.Error())
+	}
+
+	if err := d.Set("basedir", filepath.Join(homedir, d.Get("basedir").(string))); err != nil {
+		logrus.Fatalf("Didn't manage to set basedir: %s", err.Error())
+		return diag.Errorf("Didn't manage to set basedir: %s", err.Error())
 	}
 
 	return nil
@@ -177,7 +192,7 @@ func poweroffVM(ctx context.Context, d *schema.ResourceData, vm *vbg.VirtualMach
 }
 
 func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	vb := vbg.NewVBox(vbg.Config{})
+	vb := vbg.NewVBox(vbg.Config{BasePath: d.Get("basedir").(string)})
 	vm, err := vb.VMInfo(d.Id())
 
 	if err != nil {
@@ -216,9 +231,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		vm.Spec.CPU.Count = newCPUCount
 	}
 
-	id := vm.UUIDOrName()
-	vm.UUID = id
-	d.SetId(vm.UUID)
+	d.SetId(vm.UUIDOrName())
 
 	if _, err = vb.Start(vm); err != nil {
 		logrus.Fatalf("Unable to running VM: %s", err.Error())
@@ -235,7 +248,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 }
 
 func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	vb := vbg.NewVBox(vbg.Config{})
+	vb := vbg.NewVBox(vbg.Config{BasePath: d.Get("basedir").(string)})
 	vm, err := vb.VMInfo(d.Id())
 
 	if err != nil {
