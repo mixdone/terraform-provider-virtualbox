@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -18,6 +19,7 @@ func resourceVM() *schema.Resource {
 		ReadContext:   resourceVirtualBoxRead,
 		UpdateContext: resourceVirtualBoxUpdate,
 		DeleteContext: resourceVirtualBoxDelete,
+		Exists:        resourceVirtualBoxExists,
 
 		Schema: map[string]*schema.Schema{
 			"name": {
@@ -173,7 +175,7 @@ func poweroffVM(ctx context.Context, d *schema.ResourceData, vm *vbg.VirtualMach
 		return nil
 	}
 
-	if _, err := vb.Stop(vm); err != nil {
+	if _, err := vb.ControlVM(vm, "poweroff"); err != nil {
 		logrus.Fatalf("Unable to poweroff VM: %s", err.Error())
 		return err
 	}
@@ -245,6 +247,19 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	return resourceVirtualBoxRead(ctx, d, m)
+}
+
+func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
+	vb := vbg.NewVBox(vbg.Config{})
+	_, err := vb.VMInfo(d.Id())
+	switch err {
+	case nil:
+		return true, nil
+	case vbg.ErrMachineNotExist:
+		return false, nil
+	default:
+		return false, fmt.Errorf("VMInfo failed: %s", err)
+	}
 }
 
 func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
