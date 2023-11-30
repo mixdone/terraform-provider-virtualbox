@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
-	"time"
 
 	"github.com/mholt/archiver"
 	"github.com/sirupsen/logrus"
@@ -36,15 +34,6 @@ func FileDownload(url, fpath string) (string, error) {
 	}
 	defer headResp.Body.Close()
 
-	// fileSize, err := strconv.Atoi(headResp.Header.Get("Content-Length"))
-	// if err != nil {
-	// 	logrus.Fatalf("Strconv failed: %s", err.Error())
-	// 	return "", err
-	// }
-
-	//done := make(chan int64)
-	//go ProgressBar(done, int64(fileSize), path.String())
-
 	resp, err := http.Get(url)
 	if err != nil {
 		logrus.Fatalf("Http get failed: %s", err.Error())
@@ -58,49 +47,9 @@ func FileDownload(url, fpath string) (string, error) {
 		return "", err
 	}
 
-	//done <- n
 	fmt.Print(" 100%\n")
 	logrus.Print("Downloading completed")
 	return path.String(), nil
-}
-
-func ProgressBar(done chan int64, totalSize int64, path string) {
-	file, err := os.Open(path)
-	if err != nil {
-		logrus.Fatalf("File open filaed: %s", err.Error())
-	}
-	defer file.Close()
-	percent := 0.0
-
-	var stop bool = false
-	for {
-		select {
-		case <-done:
-			stop = true
-		default:
-			fi, err := file.Stat()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			size := fi.Size()
-			if size == 0 {
-				size = 1
-			}
-
-			var new_percent float64 = float64(size) / float64(totalSize) * 100
-
-			for new_percent > percent {
-				fmt.Print("█")
-				percent++
-			}
-
-		}
-		if stop {
-			break
-		}
-		time.Sleep(time.Second)
-	}
 }
 
 // return path to image or virtual disk and error

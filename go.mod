@@ -5,6 +5,7 @@ go 1.21.1
 require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.30.0
 	github.com/mholt/archiver v3.1.1+incompatible
+	github.com/mixdone/virtualbox-go v0.0.0-20231122030727-bdf922f4749f
 	github.com/sirupsen/logrus v1.9.3
 )
 
@@ -38,7 +39,6 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/mixdone/virtualbox-go v0.0.0-20231122030727-bdf922f4749f // indirect
 	github.com/nwaples/rardecode v1.1.3 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
