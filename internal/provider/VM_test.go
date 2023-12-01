@@ -63,16 +63,18 @@ func Test_createVM(t *testing.T) {
 	}
 
 	if info.Spec.Name != vm.Spec.Name ||
-		info.Spec.OSType != vm.Spec.OSType ||
-		info.Spec.CPU != vm.Spec.CPU ||
-		info.Spec.Memory != vm.Spec.Memory ||
-		info.Spec.Disks[0] != vm.Spec.Disks[0] {
+		info.Spec.OSType.ID != vm.Spec.OSType.ID ||
+		info.Spec.CPU.Count != vm.Spec.CPU.Count ||
+		info.Spec.Memory.SizeMB != vm.Spec.Memory.SizeMB ||
+		info.Spec.Disks[0].Path != vm.Spec.Disks[0].Path ||
+		info.Spec.Disks[0].SizeMB != vm.Spec.Disks[0].SizeMB ||
+		string(info.Spec.Disks[0].Format) != string(vm.Spec.Disks[0].Format) {
 		logrus.Fatalf(
 			"Expected some fields to be auto created, have %v %v %v %v %+v",
 			info.Spec.Name,
-			info.Spec.OSType,
-			info.Spec.CPU,
-			info.Spec.Memory,
+			info.Spec.OSType.ID,
+			info.Spec.CPU.Count,
+			info.Spec.Memory.SizeMB,
 			info.Spec.Disks,
 		)
 	}
