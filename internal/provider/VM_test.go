@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
@@ -117,8 +116,7 @@ func Test_define(t *testing.T) {
 		logrus.Fatalf("Problem with defaults %v", err.Error())
 	}
 
-	ctx := context.Background()             // создаём фоновый контекст
-	context.WithTimeout(ctx, 1*time.Minute) // с таймаутом в 1 минуту
+	ctx := context.Background() // создаём фоновый контекст
 
 	vb.UnRegisterVM(vm)
 	vb.DeleteVM(vm)
@@ -182,8 +180,7 @@ func Test_states(t *testing.T) {
 		logrus.Fatalf("Problem with defaults %v", err.Error())
 	}
 
-	ctx := context.Background()             // создаём фоновый контекст
-	context.WithTimeout(ctx, 1*time.Minute) // с таймаутом в 1 минуту
+	ctx := context.Background() // создаём фоновый контекст
 
 	vb.UnRegisterVM(vm)
 	vb.DeleteVM(vm)

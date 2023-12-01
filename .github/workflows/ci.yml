@@ -38,7 +38,7 @@ jobs:
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest
 
-      - name: Run staticcheck  commented out before using the image unpacking
+      - name: Run staticcheck
         run: staticcheck ./...
 
       - name: Install golint
