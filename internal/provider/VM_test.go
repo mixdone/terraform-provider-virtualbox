@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
 	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
 )
@@ -241,4 +242,62 @@ func Test_CreatePath(t *testing.T) {
 	if err := vb.DeleteVM(vm); err != nil {
 		logrus.Fatalf("Failed delete %v", err.Error())
 	}
+}
+
+func Test_ControlVM(t *testing.T) {
+	name := "test_ControlVM"
+	memory := 1024
+	cpus := 2
+	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+	basedir := "VMS1"
+	homedir, _ := os.UserHomeDir()
+	machinesDir := filepath.Join(homedir, basedir)
+	installedData := filepath.Join(homedir, "InstalledData")
+	var ltype pkg.LoadingType
+	ltype = 2
+
+	if err := os.MkdirAll(machinesDir, 0740); err != nil {
+		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
+	}
+	if err := os.MkdirAll(installedData, 0740); err != nil {
+		logrus.Fatalf("Creation InstalledData foldier failed: %s", err.Error())
+	}
+
+	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype)
+	if err != nil {
+		logrus.Fatalf("Creation VM failed: %s", err.Error())
+	}
+
+	vb := vbg.NewVBox(vbg.Config{BasePath: machinesDir})
+
+	if _, err = vb.ControlVM(vm, "running"); err != nil {
+		logrus.Fatalf("Failed running %v", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "pause"); err != nil {
+		logrus.Fatalf("Failed pause %v", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "resume"); err != nil {
+		logrus.Fatalf("Failed resume %v", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "reset"); err != nil {
+		logrus.Fatalf("Failed reset %v", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "save"); err != nil {
+		logrus.Fatalf("Failed save %v", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "running"); err != nil {
+		logrus.Fatalf("Failed running %v", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "poweroff"); err != nil {
+		logrus.Fatalf("Failed poweroff %v", err.Error())
+	}
+
+	defer vb.DeleteVM(vm)
+	defer vb.UnRegisterVM(vm)
 }
