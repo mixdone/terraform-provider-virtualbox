@@ -12,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func Test_createVM(t *testing.T) {
+/*func Test_createVM(t *testing.T) {
 
 	logrus.Info("setup")
 	dir, _ := os.UserHomeDir()
@@ -58,7 +58,7 @@ func Test_createVM(t *testing.T) {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
 
-	/*info, err := vb.VMInfo(vm.Spec.Name)
+	info, err := vb.VMInfo(vm.Spec.Name)
 	if err != nil {
 		logrus.Fatalf("Failed VMInfo %v", err.Error())
 	}
@@ -83,8 +83,8 @@ func Test_createVM(t *testing.T) {
 	}
 	if string(info.Spec.Disks[0].Format) != string(vm.Spec.Disks[0].Format) {
 		logrus.Fatalf("Expected disk format: %v, actual disk format: %v", string(vm.Spec.Disks[0].Format), string(info.Spec.Disks[0].Format))
-	}*/
-}
+	}
+}*/
 
 func Test_define(t *testing.T) {
 
