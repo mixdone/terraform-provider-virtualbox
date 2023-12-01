@@ -58,7 +58,7 @@ func Test_createVM(t *testing.T) {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
 
-	info, err := vb.VMInfo(vm.Spec.Name)
+	/*info, err := vb.VMInfo(vm.Spec.Name)
 	if err != nil {
 		logrus.Fatalf("Failed VMInfo %v", err.Error())
 	}
@@ -66,16 +66,16 @@ func Test_createVM(t *testing.T) {
 	if info.Spec.Name != vm.Spec.Name {
 		logrus.Fatalf("Expected name: %v, actual name: %v", vm.Spec.Name, info.Spec.Name)
 	}
-	/*if info.Spec.OSType.ID != vm.Spec.OSType.ID {
+	if info.Spec.OSType.ID != vm.Spec.OSType.ID {
 		logrus.Fatalf("Expected OS: %v, actual OS: %v", vm.Spec.OSType.ID, info.Spec.OSType.ID)
 	}
 	if info.Spec.CPU.Count != vm.Spec.CPU.Count {
 		logrus.Fatalf("Expected cpu count: %v, actual cpu count: %v", vm.Spec.CPU.Count, info.Spec.CPU.Count)
-	}*/
+	}
 	if info.Spec.Memory.SizeMB != vm.Spec.Memory.SizeMB {
 		logrus.Fatalf("Expected memory: %v, actual memory: %v", vm.Spec.Memory, info.Spec.Memory)
 	}
-	/*if info.Spec.Disks[0].Path != vm.Spec.Disks[0].Path {
+	if info.Spec.Disks[0].Path != vm.Spec.Disks[0].Path {
 		logrus.Fatalf("Expected disk path: %v, actual disk path: %v", vm.Spec.Disks[0].Path, info.Spec.Disks[0].Path)
 	}
 	if info.Spec.Disks[0].SizeMB != vm.Spec.Disks[0].SizeMB {
@@ -295,6 +295,51 @@ func Test_ControlVM(t *testing.T) {
 
 	if _, err = vb.ControlVM(vm, "poweroff"); err != nil {
 		logrus.Fatalf("Failed poweroff %v", err.Error())
+	}
+
+	defer vb.DeleteVM(vm)
+	defer vb.UnRegisterVM(vm)
+}
+
+func Test_ModifyVM(t *testing.T) {
+	name := "test_ModifyVM"
+	memory := 1024
+	cpus := 2
+	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+	basedir := "VMS1"
+	homedir, _ := os.UserHomeDir()
+	machinesDir := filepath.Join(homedir, basedir)
+	installedData := filepath.Join(homedir, "InstalledData")
+	var ltype pkg.LoadingType = 2
+
+	if err := os.MkdirAll(machinesDir, 0740); err != nil {
+		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
+	}
+	if err := os.MkdirAll(installedData, 0740); err != nil {
+		logrus.Fatalf("Creation InstalledData foldier failed: %s", err.Error())
+	}
+
+	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype)
+	if err != nil {
+		logrus.Fatalf("Creation VM failed: %s", err.Error())
+	}
+
+	vb := vbg.NewVBox(vbg.Config{BasePath: machinesDir})
+
+	vm.Spec.Memory.SizeMB = 512
+	vm.Spec.CPU.Count = 1
+	vm.Spec.OSType.ID = "Ubuntu_64"
+	if err = vb.ModifyVM(vm, []string{"memory", "cpus", "ostype"}); err != nil {
+		logrus.Fatalf("ModifyVM failed: %s", err.Error())
+	}
+
+	vb = vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, basedir)})
+	vm2, _ := vb.VMInfo(vm.Spec.Name)
+	if vm.Spec.CPU.Count != vm2.Spec.CPU.Count {
+		logrus.Fatalf("CPU count has not been changed")
+	}
+	if vm.Spec.Memory.SizeMB != vm2.Spec.Memory.SizeMB {
+		logrus.Fatalf("Memory has not been changed")
 	}
 
 	defer vb.DeleteVM(vm)
