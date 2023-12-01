@@ -35,6 +35,9 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Install VirtualBox
+        run: sudo apt-get install virtualbox
+
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest
 
