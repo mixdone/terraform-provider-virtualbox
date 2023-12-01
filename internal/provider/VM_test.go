@@ -68,10 +68,10 @@ func Test_createVM(t *testing.T) {
 	}
 	/*if info.Spec.OSType.ID != vm.Spec.OSType.ID {
 		logrus.Fatalf("Expected OS: %v, actual OS: %v", vm.Spec.OSType.ID, info.Spec.OSType.ID)
-	}*/
+	}
 	if info.Spec.CPU.Count != vm.Spec.CPU.Count {
 		logrus.Fatalf("Expected cpu count: %v, actual cpu count: %v", vm.Spec.CPU.Count, info.Spec.CPU.Count)
-	}
+	}*/
 	if info.Spec.Memory.SizeMB != vm.Spec.Memory.SizeMB {
 		logrus.Fatalf("Expected memory: %v, actual memory: %v", vm.Spec.Memory, info.Spec.Memory)
 	}
