@@ -253,8 +253,7 @@ func Test_ControlVM(t *testing.T) {
 	homedir, _ := os.UserHomeDir()
 	machinesDir := filepath.Join(homedir, basedir)
 	installedData := filepath.Join(homedir, "InstalledData")
-	var ltype pkg.LoadingType
-	ltype = 2
+	var ltype pkg.LoadingType = 2
 
 	if err := os.MkdirAll(machinesDir, 0740); err != nil {
 		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
