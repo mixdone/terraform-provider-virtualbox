@@ -31,6 +31,7 @@ func resourceVM() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "VMs",
+				ForceNew: true,
 			},
 
 			"memory": {
@@ -231,8 +232,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Errorf("ModifyVM failed: %s", err.Error())
 	}
 
-	id := vm.UUIDOrName()
-	vm.UUID = id
+	vm.UUID = vm.UUIDOrName()
 	d.SetId(vm.UUIDOrName())
 
 	if _, err := vb.ControlVM(vm, "running"); err != nil {
@@ -240,7 +240,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Errorf("Unable to running VM: %s", err.Error())
 	}
 
-	vm.Spec.State = vbg.Running
+	//vm.Spec.State = vbg.VirtualMachineState(d.Get("status").(string))
 	if err = setState(d, vm); err != nil {
 		logrus.Fatalf("Setting state failed: %s", err.Error())
 		return diag.Errorf("Setting state failed: %s", err.Error())
@@ -267,6 +267,11 @@ func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m int
 	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
 	vm, err := vb.VMInfo(d.Id())
 
+	if err = poweroffVM(ctx, d, vm, vb); err != nil {
+		logrus.Fatalf("Setting state failed: %s", err.Error())
+		return diag.Errorf("Setting state failed: %s", err.Error())
+	}
+
 	if err != nil {
 		logrus.Fatalf("VMInfo failed: %s", err.Error())
 		return diag.Errorf("VMInfo failed: %s", err.Error())
@@ -281,6 +286,13 @@ func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m int
 		logrus.Fatalf("VM deletion failed: %s", err.Error())
 		return diag.Errorf("VM deletion failed: %s", err.Error())
 	}
+
+	machineDir := filepath.Join(homedir, d.Get("basedir").(string))
+	if err := os.RemoveAll(machineDir); err != nil {
+		logrus.Fatalf("Can't clear the data: %s", err.Error())
+		return diag.Errorf("Can't clear the data: %s", err.Error())
+	}
+
 	return nil
 }
 

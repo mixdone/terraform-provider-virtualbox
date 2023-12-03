@@ -5,7 +5,7 @@ go 1.21.1
 require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.30.0
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/mixdone/virtualbox-go v0.0.0-20231122030727-bdf922f4749f
+	github.com/mixdone/virtualbox-go v0.0.0-20231129032439-b982e96d6a67
 	github.com/sirupsen/logrus v1.9.3
 )
 
