@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
 	vbg "github.com/mixdone/virtualbox-go"
@@ -292,6 +291,9 @@ func Test_ControlVM(t *testing.T) {
 
 	vb := vbg.NewVBox(vbg.Config{BasePath: machinesDir})
 
+	defer vb.DeleteVM(vm)
+	defer vb.UnRegisterVM(vm)
+
 	if _, err = vb.ControlVM(vm, "running"); err != nil {
 		logrus.Fatalf("Failed running %s", err.Error())
 	}
@@ -319,9 +321,6 @@ func Test_ControlVM(t *testing.T) {
 	if _, err = vb.ControlVM(vm, "poweroff"); err != nil {
 		logrus.Fatalf("Failed poweroff %s", err.Error())
 	}
-
-	defer vb.DeleteVM(vm)
-	defer vb.UnRegisterVM(vm)
 }
 
 func Test_ModifyVM(t *testing.T) {
@@ -349,6 +348,9 @@ func Test_ModifyVM(t *testing.T) {
 
 	vb := vbg.NewVBox(vbg.Config{BasePath: machinesDir})
 
+	defer vb.DeleteVM(vm)
+	defer vb.UnRegisterVM(vm)
+
 	vm.Spec.Memory.SizeMB = 512
 	vm.Spec.CPU.Count = 1
 	vm.Spec.OSType.ID = "Ubuntu_64"
@@ -364,55 +366,55 @@ func Test_ModifyVM(t *testing.T) {
 	if vm.Spec.Memory.SizeMB != vm2.Spec.Memory.SizeMB {
 		logrus.Fatalf("Memory has not been changed")
 	}
-
-	defer vb.DeleteVM(vm)
-	defer vb.UnRegisterVM(vm)
 }
 
 func Test_FileDownload(t *testing.T) {
-	time.AfterFunc(3*time.Second, func() {
-		url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
-		homedir, _ := os.UserHomeDir()
+	url := "https://github.com/mixdone/terraform-provider-virtualbox/temp/archive.tar.xz"
+	homedir, _ := os.UserHomeDir()
 
-		if _, err := pkg.FileDownload(url, homedir); err != nil {
-			logrus.Fatalf("File Downloading failed: %s", err.Error())
+	path, err := pkg.FileDownload(url, homedir)
+	if err != nil {
+		logrus.Fatalf("File Downloading failed: %s", err.Error())
+	}
+
+	defer os.Remove(filepath.Join(homedir, "archive.tar.xz"))
+
+	if path != filepath.Join(homedir, "archive.tar.xz") {
+		logrus.Fatalf("File path incorrect")
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			logrus.Fatalf("File does not exist")
+		} else {
+			logrus.Fatalf("Other error with os.Stat")
 		}
-
-		if _, err := os.Stat(filepath.Join(homedir, "ubuntu-15.04.tar.xz")); err != nil {
-			if os.IsNotExist(err) {
-				logrus.Fatalf("File does not exist")
-			} else {
-				logrus.Fatalf("Other error with os.Stat")
-			}
-		}
-
-		defer os.Remove(filepath.Join(homedir, "ubuntu-15.04.tar.xz"))
-	})
+	}
 }
 
 func Test_UnpackImage(t *testing.T) {
-	time.AfterFunc(3*time.Second, func() {
-		url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
-		homedir, _ := os.UserHomeDir()
+	url := "https://github.com/mixdone/terraform-provider-virtualbox/temp/archive.tar.xz"
+	homedir, _ := os.UserHomeDir()
 
-		path, err := pkg.FileDownload(url, homedir)
-		if err != nil {
-			logrus.Fatalf("File Downloading failed: %s", err.Error())
+	path_to_archive, err := pkg.FileDownload(url, homedir)
+	if err != nil {
+		logrus.Fatalf("File Downloading failed: %s", err.Error())
+	}
+
+	defer os.Remove(path_to_archive)
+
+	_, err = pkg.UnpackImage(path_to_archive, homedir)
+	if err != nil {
+		logrus.Fatalf("Unpacking Image failed: %s", err.Error())
+	}
+
+	defer os.Remove(filepath.Join(homedir, "testfile.go"))
+
+	if _, err := os.Stat(filepath.Join(homedir, "testfile.go")); err != nil {
+		if os.IsNotExist(err) {
+			logrus.Fatalf("File does not exist")
+		} else {
+			logrus.Fatalf("Other error with os.Stat")
 		}
-
-		if _, err := pkg.UnpackImage(path, homedir); err != nil {
-			logrus.Fatalf("Unpacking Image failed: %s", err.Error())
-		}
-
-		if _, err := os.Stat(filepath.Join(homedir, "ubuntu-15.04.vdi")); err != nil {
-			if os.IsNotExist(err) {
-				logrus.Fatalf("File does not exist")
-			} else {
-				logrus.Fatalf("Other error with os.Stat")
-			}
-		}
-
-		defer os.Remove(path)
-		defer os.Remove(filepath.Join(homedir, "ubuntu-15.04.vdi"))
-	})
+	}
 }
