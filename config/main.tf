@@ -1,9 +1,10 @@
 resource "virtualbox_server" "VM_without_image" {
-    count     = 1
+    count     = 6
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
-    cpus      = 2
-    memory    = 500
+    cpus      = 4
+    memory    = 1000
+    status = "poweroff"
 }
 
 resource "virtualbox_server" "VM_VDI" {

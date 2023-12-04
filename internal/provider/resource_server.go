@@ -182,7 +182,7 @@ func poweroffVM(ctx context.Context, d *schema.ResourceData, vm *vbg.VirtualMach
 	}
 
 	vm.Spec.State = vbg.Poweroff
-	return setState(d, vm)
+	return nil
 }
 
 func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -226,24 +226,30 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		vm.Spec.CPU.Count = newCPUCount
 	}
 
-	err = vb.ModifyVM(vm, parameters)
-	if err != nil {
-		logrus.Fatalf("ModifyVM failed: %s", err.Error())
-		return diag.Errorf("ModifyVM failed: %s", err.Error())
+	if len(parameters) != 0 {
+		err = vb.ModifyVM(vm, parameters)
+		if err != nil {
+			logrus.Fatalf("ModifyVM failed: %s", err.Error())
+			return diag.Errorf("ModifyVM failed: %s", err.Error())
+		}
 	}
 
 	vm.UUID = vm.UUIDOrName()
 	d.SetId(vm.UUIDOrName())
 
-	if _, err := vb.ControlVM(vm, "running"); err != nil {
-		logrus.Fatalf("Unable to running VM: %s", err.Error())
-		return diag.Errorf("Unable to running VM: %s", err.Error())
-	}
-
-	//vm.Spec.State = vbg.VirtualMachineState(d.Get("status").(string))
-	if err = setState(d, vm); err != nil {
-		logrus.Fatalf("Setting state failed: %s", err.Error())
-		return diag.Errorf("Setting state failed: %s", err.Error())
+	status := d.Get("status").(string)
+	logrus.Printf("%s -> %s", vm.Spec.State, status)
+	if status != string(vm.Spec.State) {
+		if _, err := vb.ControlVM(vm, status); err != nil {
+			logrus.Fatalf("Unable to running VM: %s", err.Error())
+			return diag.Errorf("Unable to running VM: %s", err.Error())
+		}
+		logrus.Printf("%s -> %s", vm.Spec.State, status)
+		vm.Spec.State = vbg.VirtualMachineState(status)
+		if err = setState(d, vm); err != nil {
+			logrus.Fatalf("Setting state failed: %s", err.Error())
+			return diag.Errorf("Setting state failed: %s", err.Error())
+		}
 	}
 
 	return resourceVirtualBoxRead(ctx, d, m)
