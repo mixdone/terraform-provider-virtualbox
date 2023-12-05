@@ -369,7 +369,7 @@ func Test_ModifyVM(t *testing.T) {
 }
 
 func Test_FileDownload(t *testing.T) {
-	url := "https://github.com/mixdone/terraform-provider-virtualbox/temp/archive.tar.xz"
+	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
 	homedir, _ := os.UserHomeDir()
 
 	path, err := pkg.FileDownload(url, homedir)
@@ -377,9 +377,9 @@ func Test_FileDownload(t *testing.T) {
 		logrus.Fatalf("File Downloading failed: %s", err.Error())
 	}
 
-	defer os.Remove(filepath.Join(homedir, "archive.tar.xz"))
+	defer os.Remove(filepath.Join(homedir, "ubuntu-15.04.tar.xz"))
 
-	if path != filepath.Join(homedir, "archive.tar.xz") {
+	if path != filepath.Join(homedir, "ubuntu-15.04.tar.xz") {
 		logrus.Fatalf("File path incorrect")
 	}
 
@@ -393,7 +393,7 @@ func Test_FileDownload(t *testing.T) {
 }
 
 func Test_UnpackImage(t *testing.T) {
-	url := "https://github.com/mixdone/terraform-provider-virtualbox/temp/archive.tar.xz"
+	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
 	homedir, _ := os.UserHomeDir()
 
 	path_to_archive, err := pkg.FileDownload(url, homedir)
@@ -408,9 +408,9 @@ func Test_UnpackImage(t *testing.T) {
 		logrus.Fatalf("Unpacking Image failed: %s", err.Error())
 	}
 
-	defer os.Remove(filepath.Join(homedir, "testfile.go"))
+	defer os.Remove(filepath.Join(homedir, "ubuntu-15.04.vdi"))
 
-	if _, err := os.Stat(filepath.Join(homedir, "testfile.go")); err != nil {
+	if _, err := os.Stat(filepath.Join(homedir, "ubuntu-15.04.vdi")); err != nil {
 		if os.IsNotExist(err) {
 			logrus.Fatalf("File does not exist")
 		} else {
