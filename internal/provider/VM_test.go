@@ -40,7 +40,7 @@ func Test_createVM(t *testing.T) {
 
 	// Параметры вируальной машины
 	spec := &vbg.VirtualMachineSpec{
-		Name:   "vmName",
+		Name:   "vmName1",
 		OSType: vbg.Ubuntu64,
 		CPU:    vbg.CPU{Count: 2},
 		Memory: vbg.Memory{SizeMB: 1000},
@@ -55,15 +55,16 @@ func Test_createVM(t *testing.T) {
 		logrus.Fatalf("Failed creating %v", err.Error())
 	}
 
+	defer vb.DeleteVM(vm)
+
 	if err := vb.RegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
 
+	defer vb.UnRegisterVM(vm)
+
 	vb.SetCPUCount(vm, vm.Spec.CPU.Count)
 	vb.SetMemory(vm, vm.Spec.Memory.SizeMB)
-
-	defer vb.DeleteVM(vm)
-	defer vb.UnRegisterVM(vm)
 
 	vb2 := vbg.NewVBox(vbg.Config{
 		BasePath: dirName,
@@ -77,10 +78,6 @@ func Test_createVM(t *testing.T) {
 	if info.Spec.Name != vm.Spec.Name {
 		logrus.Fatalf("Expected name: %v, actual name: %v", vm.Spec.Name, info.Spec.Name)
 	}
-
-	/*if info.Spec.OSType.ID != vm.Spec.OSType.ID {
-		logrus.Fatalf("Expected OS: %v, actual OS: %v", vm.Spec.OSType.ID, info.Spec.OSType.ID)
-	}*/
 
 	if info.Spec.CPU.Count != vm.Spec.CPU.Count {
 		logrus.Fatalf("Expected cpu count: %v, actual cpu count: %v", vm.Spec.CPU.Count, info.Spec.CPU.Count)
@@ -99,10 +96,6 @@ func Test_createVM(t *testing.T) {
 		logrus.Fatalf("Expected disk path: %v, actual disk path: %v", vm.Spec.Disks[0].Path, info.Spec.Disks[0].Path)
 	}
 
-	/*if disk.SizeMB != vm.Spec.Disks[0].SizeMB {
-		logrus.Fatalf("Expected disk size: %v, actual disk size: %v", vm.Spec.Disks[0].SizeMB, info.Spec.Disks[0].SizeMB)
-	}*/
-
 	if string(disk.Format) != string(vm.Spec.Disks[0].Format) {
 		logrus.Fatalf("Expected disk format: %v, actual disk format: %v", string(vm.Spec.Disks[0].Format), string(info.Spec.Disks[0].Format))
 	}
@@ -115,6 +108,7 @@ func Test_define(t *testing.T) {
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
+
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{})
@@ -130,7 +124,7 @@ func Test_define(t *testing.T) {
 
 	// Параметры вируальной машины
 	spec := &vbg.VirtualMachineSpec{
-		Name:   "vmName",
+		Name:   "vmName2",
 		Group:  "/vmGroup",
 		OSType: vbg.Ubuntu64,
 		CPU:    vbg.CPU{Count: 2},
@@ -178,6 +172,7 @@ func Test_states(t *testing.T) {
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
+
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{})
@@ -193,7 +188,7 @@ func Test_states(t *testing.T) {
 
 	// Параметры вируальной машины
 	spec := &vbg.VirtualMachineSpec{
-		Name:   "vmName",
+		Name:   "vmName3",
 		Group:  "/vmGroup",
 		OSType: vbg.Ubuntu64,
 		CPU:    vbg.CPU{Count: 2},
@@ -230,6 +225,9 @@ func Test_states(t *testing.T) {
 	if _, err = vb.Stop(vm); err != nil {
 		logrus.Fatalf("Failed to stop %s: error %v", vm.Spec.Name, err.Error())
 	}
+
+	vb.UnRegisterVM(vm)
+	vb.DeleteVM(vm)
 }
 
 func Test_CreatePath(t *testing.T) {
@@ -240,7 +238,7 @@ func Test_CreatePath(t *testing.T) {
 
 	// Параметры вируальной машины
 	spec := &vbg.VirtualMachineSpec{
-		Name:   "vmName",
+		Name:   "vmName4",
 		OSType: vbg.Ubuntu64,
 		CPU:    vbg.CPU{Count: 2},
 		Memory: vbg.Memory{SizeMB: 1000},
@@ -256,6 +254,8 @@ func Test_CreatePath(t *testing.T) {
 	if err := vb.RegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
+
+	defer os.RemoveAll(vb.Config.BasePath)
 
 	if err := vb.UnRegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed unregister %v", err.Error())
@@ -280,9 +280,14 @@ func Test_ControlVM(t *testing.T) {
 	if err := os.MkdirAll(machinesDir, 0740); err != nil {
 		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
 	}
+
+	os.RemoveAll(machinesDir)
+
 	if err := os.MkdirAll(installedData, 0740); err != nil {
 		logrus.Fatalf("Creation InstalledData foldier failed: %s", err.Error())
 	}
+
+	defer os.RemoveAll(installedData)
 
 	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype)
 	if err != nil {
@@ -337,9 +342,14 @@ func Test_ModifyVM(t *testing.T) {
 	if err := os.MkdirAll(machinesDir, 0740); err != nil {
 		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
 	}
+
+	defer os.RemoveAll(machinesDir)
+
 	if err := os.MkdirAll(installedData, 0740); err != nil {
 		logrus.Fatalf("Creation InstalledData foldier failed: %s", err.Error())
 	}
+
+	defer os.RemoveAll(installedData)
 
 	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype)
 	if err != nil {
