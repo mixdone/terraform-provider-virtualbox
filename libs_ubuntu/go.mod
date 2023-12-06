@@ -2,7 +2,10 @@ module libTest
 
 go 1.18
 
-require github.com/uruddarraju/virtualbox-go v0.0.0-20200813004450-d5ba1da544c4
+require (
+	github.com/mixdone/virtualbox-go v0.0.0-20231129032439-b982e96d6a67
+	github.com/sirupsen/logrus v1.9.3
+)
 
 require (
 	github.com/golang/glog v1.1.2 // indirect
