@@ -6,6 +6,7 @@ import (
 
 func Provider() *schema.Provider {
 	return &schema.Provider{
+		Schema: map[string]*schema.Schema{},
 		ResourcesMap: map[string]*schema.Resource{
 			"virtualbox_server": resourceVM(),
 		},
