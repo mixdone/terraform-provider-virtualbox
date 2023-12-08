@@ -25,7 +25,8 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		vdiDisk = image_path
 	case imageloading:
 		vdiDisk = filepath.Base(image_path)
-		vdiDisk = vdiDisk[:len(vdiDisk)-len(filepath.Ext(vdiDisk))] + ".vdi"
+		vdiDisk = vdiDisk[:len(vdiDisk)-len(filepath.Ext(vdiDisk))] + vmName + ".vdi"
+		vdiDisk = filepath.Join(dirName, vdiDisk)
 	}
 
 	vb := vbg.NewVBox(vbg.Config{
@@ -138,7 +139,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		}
 
 		if err := vb.AttachStorage(vm, &disk_ISO); err != nil {
-			logrus.Errorf("Attach error %s", err.Error())
+			logrus.Errorf("Attach error: %s", err.Error())
 			return nil, err
 		}
 	}
