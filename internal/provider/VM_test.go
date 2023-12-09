@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
 	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
 )
@@ -15,11 +16,11 @@ func Test_createVM(t *testing.T) {
 
 	logrus.Info("setup")
 	dir, _ := os.UserHomeDir()
-
 	dirName, err := os.MkdirTemp(dir, "VirtualBox VMs")
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
+
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{
@@ -39,12 +40,13 @@ func Test_createVM(t *testing.T) {
 
 	// Параметры вируальной машины
 	spec := &vbg.VirtualMachineSpec{
-		Name:   "vmName",
+		Name:   "vmName1",
 		OSType: vbg.Ubuntu64,
 		CPU:    vbg.CPU{Count: 2},
 		Memory: vbg.Memory{SizeMB: 1000},
 		Disks:  []vbg.Disk{disk1},
 	}
+
 	vm := &vbg.VirtualMachine{
 		Spec: *spec,
 	}
@@ -53,28 +55,49 @@ func Test_createVM(t *testing.T) {
 		logrus.Fatalf("Failed creating %v", err.Error())
 	}
 
+	defer vb.DeleteVM(vm)
+
 	if err := vb.RegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
 
-	info, err := vb.VMInfo(vm.Spec.Name)
+	defer vb.UnRegisterVM(vm)
+
+	vb.SetCPUCount(vm, vm.Spec.CPU.Count)
+	vb.SetMemory(vm, vm.Spec.Memory.SizeMB)
+
+	vb2 := vbg.NewVBox(vbg.Config{
+		BasePath: dirName,
+	})
+
+	info, err := vb2.VMInfo(vm.Spec.Name)
 	if err != nil {
 		logrus.Fatalf("Failed VMInfo %v", err.Error())
 	}
 
-	if info.Spec.Name != vm.Spec.Name ||
-		info.Spec.OSType != vm.Spec.OSType ||
-		info.Spec.CPU != vm.Spec.CPU ||
-		info.Spec.Memory != vm.Spec.Memory ||
-		info.Spec.Disks[0] != vm.Spec.Disks[0] {
-		logrus.Fatalf(
-			"Expected some fields to be auto created, have %v %v %v %v %+v",
-			info.Spec.Name,
-			info.Spec.OSType,
-			info.Spec.CPU,
-			info.Spec.Memory,
-			info.Spec.Disks,
-		)
+	if info.Spec.Name != vm.Spec.Name {
+		logrus.Fatalf("Expected name: %v, actual name: %v", vm.Spec.Name, info.Spec.Name)
+	}
+
+	if info.Spec.CPU.Count != vm.Spec.CPU.Count {
+		logrus.Fatalf("Expected cpu count: %v, actual cpu count: %v", vm.Spec.CPU.Count, info.Spec.CPU.Count)
+	}
+
+	if info.Spec.Memory.SizeMB != vm.Spec.Memory.SizeMB {
+		logrus.Fatalf("Expected memory: %v, actual memory: %v", vm.Spec.Memory, info.Spec.Memory)
+	}
+
+	disk, err := vb.DiskInfo(&vm.Spec.Disks[0])
+	if err != nil {
+		logrus.Fatalf("Failed DiskInfo %v", err.Error())
+	}
+
+	if disk.Path != vm.Spec.Disks[0].Path {
+		logrus.Fatalf("Expected disk path: %v, actual disk path: %v", vm.Spec.Disks[0].Path, info.Spec.Disks[0].Path)
+	}
+
+	if string(disk.Format) != string(vm.Spec.Disks[0].Format) {
+		logrus.Fatalf("Expected disk format: %v, actual disk format: %v", string(vm.Spec.Disks[0].Format), string(info.Spec.Disks[0].Format))
 	}
 }
 
@@ -85,6 +108,7 @@ func Test_define(t *testing.T) {
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
+
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{})
@@ -100,7 +124,7 @@ func Test_define(t *testing.T) {
 
 	// Параметры вируальной машины
 	spec := &vbg.VirtualMachineSpec{
-		Name:   "vmName",
+		Name:   "vmName2",
 		Group:  "/vmGroup",
 		OSType: vbg.Ubuntu64,
 		CPU:    vbg.CPU{Count: 2},
@@ -148,6 +172,7 @@ func Test_states(t *testing.T) {
 	if err != nil {
 		logrus.Fatalf("Tempdir creation failed %v", err.Error())
 	}
+
 	defer os.RemoveAll(dirName)
 
 	vb := vbg.NewVBox(vbg.Config{})
@@ -163,7 +188,7 @@ func Test_states(t *testing.T) {
 
 	// Параметры вируальной машины
 	spec := &vbg.VirtualMachineSpec{
-		Name:   "vmName",
+		Name:   "vmName3",
 		Group:  "/vmGroup",
 		OSType: vbg.Ubuntu64,
 		CPU:    vbg.CPU{Count: 2},
@@ -200,6 +225,9 @@ func Test_states(t *testing.T) {
 	if _, err = vb.Stop(vm); err != nil {
 		logrus.Fatalf("Failed to stop %s: error %v", vm.Spec.Name, err.Error())
 	}
+
+	vb.UnRegisterVM(vm)
+	vb.DeleteVM(vm)
 }
 
 func Test_CreatePath(t *testing.T) {
@@ -210,7 +238,7 @@ func Test_CreatePath(t *testing.T) {
 
 	// Параметры вируальной машины
 	spec := &vbg.VirtualMachineSpec{
-		Name:   "vmName",
+		Name:   "vmName4",
 		OSType: vbg.Ubuntu64,
 		CPU:    vbg.CPU{Count: 2},
 		Memory: vbg.Memory{SizeMB: 1000},
@@ -227,11 +255,176 @@ func Test_CreatePath(t *testing.T) {
 		logrus.Fatalf("Failed register %v", err.Error())
 	}
 
+	defer os.RemoveAll(vb.Config.BasePath)
+
 	if err := vb.UnRegisterVM(vm); err != nil {
 		logrus.Fatalf("Failed unregister %v", err.Error())
 	}
 
 	if err := vb.DeleteVM(vm); err != nil {
 		logrus.Fatalf("Failed delete %v", err.Error())
+	}
+}
+
+func Test_ControlVM(t *testing.T) {
+	name := "test_ControlVM"
+	memory := 1024
+	cpus := 2
+	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+	basedir := "VMS1"
+	homedir, _ := os.UserHomeDir()
+	machinesDir := filepath.Join(homedir, basedir)
+	installedData := filepath.Join(homedir, "InstalledData")
+	var ltype pkg.LoadingType = 2
+
+	if err := os.MkdirAll(machinesDir, 0740); err != nil {
+		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
+	}
+
+	os.RemoveAll(machinesDir)
+
+	if err := os.MkdirAll(installedData, 0740); err != nil {
+		logrus.Fatalf("Creation InstalledData foldier failed: %s", err.Error())
+	}
+
+	defer os.RemoveAll(installedData)
+
+	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype)
+	if err != nil {
+		logrus.Fatalf("Creation VM failed: %s", err.Error())
+	}
+
+	vb := vbg.NewVBox(vbg.Config{BasePath: machinesDir})
+
+	defer vb.DeleteVM(vm)
+	defer vb.UnRegisterVM(vm)
+
+	if _, err = vb.ControlVM(vm, "running"); err != nil {
+		logrus.Fatalf("Failed running %s", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "pause"); err != nil {
+		logrus.Fatalf("Failed pause %s", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "resume"); err != nil {
+		logrus.Fatalf("Failed resume %s", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "reset"); err != nil {
+		logrus.Fatalf("Failed reset %s", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "save"); err != nil {
+		logrus.Fatalf("Failed save %s", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "running"); err != nil {
+		logrus.Fatalf("Failed running %s", err.Error())
+	}
+
+	if _, err = vb.ControlVM(vm, "poweroff"); err != nil {
+		logrus.Fatalf("Failed poweroff %s", err.Error())
+	}
+}
+
+func Test_ModifyVM(t *testing.T) {
+	name := "test_ModifyVM"
+	memory := 1024
+	cpus := 2
+	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+	basedir := "VMS1"
+	homedir, _ := os.UserHomeDir()
+	machinesDir := filepath.Join(homedir, basedir)
+	installedData := filepath.Join(homedir, "InstalledData")
+	var ltype pkg.LoadingType = 2
+
+	if err := os.MkdirAll(machinesDir, 0740); err != nil {
+		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
+	}
+
+	defer os.RemoveAll(machinesDir)
+
+	if err := os.MkdirAll(installedData, 0740); err != nil {
+		logrus.Fatalf("Creation InstalledData foldier failed: %s", err.Error())
+	}
+
+	defer os.RemoveAll(installedData)
+
+	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype)
+	if err != nil {
+		logrus.Fatalf("Creation VM failed: %s", err.Error())
+	}
+
+	vb := vbg.NewVBox(vbg.Config{BasePath: machinesDir})
+
+	defer vb.DeleteVM(vm)
+	defer vb.UnRegisterVM(vm)
+
+	vm.Spec.Memory.SizeMB = 512
+	vm.Spec.CPU.Count = 1
+	vm.Spec.OSType.ID = "Ubuntu_64"
+	if err = vb.ModifyVM(vm, []string{"memory", "cpus", "ostype"}); err != nil {
+		logrus.Fatalf("ModifyVM failed: %s", err.Error())
+	}
+
+	vb = vbg.NewVBox(vbg.Config{BasePath: machinesDir})
+	vm2, _ := vb.VMInfo(vm.Spec.Name)
+	if vm.Spec.CPU.Count != vm2.Spec.CPU.Count {
+		logrus.Fatalf("CPU count has not been changed")
+	}
+	if vm.Spec.Memory.SizeMB != vm2.Spec.Memory.SizeMB {
+		logrus.Fatalf("Memory has not been changed")
+	}
+}
+
+func Test_FileDownload(t *testing.T) {
+	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+	homedir, _ := os.UserHomeDir()
+
+	path, err := pkg.FileDownload(url, homedir)
+	if err != nil {
+		logrus.Fatalf("File Downloading failed: %s", err.Error())
+	}
+
+	defer os.Remove(filepath.Join(homedir, "ubuntu-15.04.tar.xz"))
+
+	if path != filepath.Join(homedir, "ubuntu-15.04.tar.xz") {
+		logrus.Fatalf("File path incorrect")
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			logrus.Fatalf("File does not exist")
+		} else {
+			logrus.Fatalf("Other error with os.Stat")
+		}
+	}
+}
+
+func Test_UnpackImage(t *testing.T) {
+	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+	homedir, _ := os.UserHomeDir()
+
+	path_to_archive, err := pkg.FileDownload(url, homedir)
+	if err != nil {
+		logrus.Fatalf("File Downloading failed: %s", err.Error())
+	}
+
+	defer os.Remove(path_to_archive)
+
+	_, err = pkg.UnpackImage(path_to_archive, homedir)
+	if err != nil {
+		logrus.Fatalf("Unpacking Image failed: %s", err.Error())
+	}
+
+	defer os.Remove(filepath.Join(homedir, "ubuntu-15.04.vdi"))
+
+	if _, err := os.Stat(filepath.Join(homedir, "ubuntu-15.04.vdi")); err != nil {
+		if os.IsNotExist(err) {
+			logrus.Fatalf("File does not exist")
+		} else {
+			logrus.Fatalf("Other error with os.Stat")
+		}
 	}
 }
