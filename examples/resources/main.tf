@@ -8,7 +8,7 @@ resource "virtualbox_server" "VM_without_image" {
 }
 
 resource "virtualbox_server" "VM_VDI" {
-    count     = 0
+    count     = 2
     name      = format("VM_VDI-%02d", count.index + 1)
     basedir = format("VM_VDI-%02d", count.index + 1)
     cpus      = 2

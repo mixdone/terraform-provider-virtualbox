@@ -125,7 +125,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 					logrus.Fatalf("File unpaking failed: %s", err.Error())
 					return diag.Errorf("File unpaking failed: %s", err.Error())
 				}
-				image = imagePath
+				basePath := filepath.Base(imagePath)
+				basePath = basePath[:len(basePath)-len(filepath.Ext(basePath))] + name + filepath.Ext(basePath)
+				image = filepath.Join(imagePath[:len(imagePath)-len(filepath.Base(imagePath))], basePath)
+				os.Rename(imagePath, image)
 			} else {
 				image = filename
 			}
