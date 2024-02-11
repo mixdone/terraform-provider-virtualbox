@@ -87,19 +87,32 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	// Geting data from config
 	name := d.Get("name").(string)
 	cpus := d.Get("cpus").(int)
+	if cpus <= 0 {
+		return diag.Errorf("Bad CPUs format")
+	}
 	memory := d.Get("memory").(int)
+	if memory <= 0 {
+		return diag.Errorf("Bad memory format")
+	}
+
+	_, err := validateStatus(d)
+	if err != nil {
+		return diag.Errorf("%s", err.Error())
+	}
 
 	// Making new folders for VirtualMachine data
-	homedir, _ := os.UserHomeDir()
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return diag.Errorf("userhomedir failed: %s", err.Error())
+	}
+
 	machinesDir := filepath.Join(homedir, d.Get("basedir").(string))
 	installedData := filepath.Join(machinesDir, "InstalledData")
 
 	if err := os.MkdirAll(machinesDir, 0740); err != nil {
-		logrus.Fatalf("Creation VirtualMachines foldier failed: %s", err.Error())
 		return diag.Errorf("Creation VirtualMachines foldier failed: %s", err.Error())
 	}
 	if err := os.MkdirAll(installedData, 0740); err != nil {
-		logrus.Fatalf("Creation InstalledData foldier failed: %s", err.Error())
 		return diag.Errorf("Creation InstalledData foldier failed: %s", err.Error())
 	}
 
@@ -115,14 +128,12 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		} else {
 			filename, err := pkg.FileDownload(url.(string), homedir)
 			if err != nil {
-				logrus.Fatalf("File dowload failed: %s", err.Error())
 				return diag.Errorf("File dowload failed: %s", err.Error())
 			}
 
 			if filepath.Ext(filepath.Base(filename)) != ".iso" {
 				imagePath, err := pkg.UnpackImage(filename, installedData)
 				if err != nil {
-					logrus.Fatalf("File unpaking failed: %s", err.Error())
 					return diag.Errorf("File unpaking failed: %s", err.Error())
 				}
 				basePath := filepath.Base(imagePath)
@@ -144,7 +155,6 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	// Creating VM with specified parametrs
 	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype)
 	if err != nil {
-		logrus.Fatalf("Creation VM failed: %s", err.Error())
 		return diag.Errorf("Creation VM failed: %s", err.Error())
 	}
 
@@ -161,37 +171,31 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 
 	if err != nil {
 		d.SetId("")
-		logrus.Fatalf("VMInfo failed: %s", err.Error())
 		return diag.Errorf("VMInfo failed: %s", err.Error())
 	}
 
 	// Set state of Machine for Terraform
 	if err := setState(d, vm); err != nil {
-		logrus.Fatalf("Didn't manage to set VMState: %s", err.Error())
 		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
 	}
 
 	// Set name of Machine for Terraform
 	if err := d.Set("name", vm.Spec.Name); err != nil {
-		logrus.Fatalf("Didn't manage to set name: %s", err.Error())
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
 	}
 
 	// Set CPUs amount for Terraform
 	if err := d.Set("cpus", vm.Spec.CPU.Count); err != nil {
-		logrus.Fatalf("Didn't manage to set cpus: %s", err.Error())
 		return diag.Errorf("Didn't manage to set cpus: %s", err.Error())
 	}
 
 	// Set memory for Terraform
 	if err := d.Set("memory", vm.Spec.Memory.SizeMB); err != nil {
-		logrus.Fatalf("Didn't manage to set memory: %s", err.Error())
 		return diag.Errorf("Didn't manage to set memory: %s", err.Error())
 	}
 
 	// Set basedir VM for Terraform
 	if err := d.Set("basedir", d.Get("basedir").(string)); err != nil {
-		logrus.Fatalf("Didn't manage to set basedir: %s", err.Error())
 		return diag.Errorf("Didn't manage to set basedir: %s", err.Error())
 	}
 
@@ -205,7 +209,7 @@ func poweroffVM(ctx context.Context, d *schema.ResourceData, vm *vbg.VirtualMach
 	}
 
 	if _, err := vb.ControlVM(vm, "poweroff"); err != nil {
-		logrus.Fatalf("Unable to poweroff VM: %s", err.Error())
+		logrus.Errorf("Unable to poweroff VM: %s", err.Error())
 		return err
 	}
 
@@ -223,22 +227,17 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	parameters := []string{}
 
 	if err != nil {
-		logrus.Fatalf("VMInfo failed: %s", err.Error())
 		return diag.Errorf("VMInfo failed: %s", err.Error())
 	}
 
 	// Powerof VM
 	if err = poweroffVM(ctx, d, vm, vb); err != nil {
-		logrus.Fatalf("Setting state failed: %s", err.Error())
 		return diag.Errorf("Setting state failed: %s", err.Error())
 	}
 
 	// Setting new name
 	actualName := vm.Spec.Name
-	newName, ok := d.Get("name").(string)
-	if !ok {
-		logrus.Info("Convertion name to string failed")
-	}
+	newName := d.Get("name").(string)
 	if actualName != newName {
 		parameters = append(parameters, "name")
 		vm.Spec.Name = newName
@@ -247,6 +246,9 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	// Setting new amount of memory
 	actualMemory := vm.Spec.Memory.SizeMB
 	newMemory := d.Get("memory").(int)
+	if newMemory <= 0 {
+		return diag.Errorf("Bad memory format")
+	}
 	if actualMemory != newMemory {
 		parameters = append(parameters, "memory")
 		vm.Spec.Memory.SizeMB = newMemory
@@ -255,6 +257,9 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	// Setting new amount of CPUs
 	actualCPUCount := vm.Spec.CPU.Count
 	newCPUCount := d.Get("cpus").(int)
+	if newCPUCount <= 0 {
+		return diag.Errorf("Bad CPUs format")
+	}
 	if actualCPUCount != newCPUCount {
 		parameters = append(parameters, "cpus")
 		vm.Spec.CPU.Count = newCPUCount
@@ -264,7 +269,6 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	if len(parameters) != 0 {
 		err = vb.ModifyVM(vm, parameters)
 		if err != nil {
-			logrus.Fatalf("ModifyVM failed: %s", err.Error())
 			return diag.Errorf("ModifyVM failed: %s", err.Error())
 		}
 	}
@@ -274,17 +278,19 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	d.SetId(vm.UUIDOrName())
 
 	// Updating state
-	status := d.Get("status").(string)
+	status, err := validateStatus(d)
+	if err != nil {
+		return diag.Errorf("%s", err.Error())
+	}
+
 	logrus.Printf("%s -> %s", vm.Spec.State, status)
 	if status != string(vm.Spec.State) {
 		if _, err := vb.ControlVM(vm, status); err != nil {
-			logrus.Fatalf("Unable to running VM: %s", err.Error())
 			return diag.Errorf("Unable to running VM: %s", err.Error())
 		}
 		logrus.Printf("%s -> %s", vm.Spec.State, status)
 		vm.Spec.State = vbg.VirtualMachineState(status)
 		if err = setState(d, vm); err != nil {
-			logrus.Fatalf("Setting state failed: %s", err.Error())
 			return diag.Errorf("Setting state failed: %s", err.Error())
 		}
 	}
@@ -307,37 +313,35 @@ func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, erro
 
 func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Getting VM by id
-	homedir, _ := os.UserHomeDir()
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return diag.Errorf("userhomedir failed: %s", err.Error())
+	}
+
 	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
 	vm, err := vb.VMInfo(d.Id())
-
 	if err != nil {
-		logrus.Fatalf("VMInfo failed: %s", err.Error())
 		return diag.Errorf("VMInfo failed: %s", err.Error())
 	}
 
 	// Powerof VM
 	if err = poweroffVM(ctx, d, vm, vb); err != nil {
-		logrus.Fatalf("Setting state failed: %s", err.Error())
 		return diag.Errorf("Setting state failed: %s", err.Error())
 	}
 
 	// Unresitering VM
 	if err = vb.UnRegisterVM(vm); err != nil {
-		logrus.Fatalf("VM Unregiste failed: %s", err.Error())
 		return diag.Errorf("VM Unregiste failed: %s", err.Error())
 	}
 
 	// VM deletion
 	if err = vb.DeleteVM(vm); err != nil {
-		logrus.Fatalf("VM deletion failed: %s", err.Error())
 		return diag.Errorf("VM deletion failed: %s", err.Error())
 	}
 
 	// Delete machine folder
 	machineDir := filepath.Join(homedir, d.Get("basedir").(string))
 	if err := os.RemoveAll(machineDir); err != nil {
-		logrus.Fatalf("Can't clear the data: %s", err.Error())
 		return diag.Errorf("Can't clear the data: %s", err.Error())
 	}
 
@@ -359,4 +363,22 @@ func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		err = d.Set("status", "aborted")
 	}
 	return err
+}
+
+func validateStatus(d *schema.ResourceData) (string, error) {
+	status := d.Get("status").(string)
+	switch status {
+	case "poweroff":
+		return status, nil
+	case "running":
+		return status, nil
+	case "paused":
+		return status, nil
+	case "saved":
+		return status, nil
+	case "aborted":
+		return status, nil
+	default:
+		return "", fmt.Errorf("Status does not match any of the existing ones\n - poweroff\n - runnning\n - paused \n - saved \n - aborted\n")
+	}
 }
