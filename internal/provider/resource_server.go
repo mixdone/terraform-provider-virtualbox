@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
 	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
+
+	mem "github.com/pbnjay/memory"
 )
 
 func resourceVM() *schema.Resource {
@@ -85,20 +88,13 @@ func resourceVM() *schema.Resource {
 
 func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Geting data from config
-	name := d.Get("name").(string)
-	cpus := d.Get("cpus").(int)
-	if cpus <= 0 {
-		return diag.Errorf("Bad CPUs format")
-	}
-	memory := d.Get("memory").(int)
-	if memory <= 0 {
-		return diag.Errorf("Bad memory format")
+	if err := validateVmParams(d); err != nil {
+		return diag.Errorf(err.Error())
 	}
 
-	_, err := validateStatus(d)
-	if err != nil {
-		return diag.Errorf("%s", err.Error())
-	}
+	name := d.Get("name").(string)
+	cpus := d.Get("cpus").(int)
+	memory := d.Get("memory").(int)
 
 	// Making new folders for VirtualMachine data
 	homedir, err := os.UserHomeDir()
@@ -218,6 +214,10 @@ func poweroffVM(ctx context.Context, d *schema.ResourceData, vm *vbg.VirtualMach
 }
 
 func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	if err := validateVmParams(d); err != nil {
+		return diag.Errorf(err.Error())
+	}
+
 	// Getting VM by id
 	homedir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
@@ -246,9 +246,6 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	// Setting new amount of memory
 	actualMemory := vm.Spec.Memory.SizeMB
 	newMemory := d.Get("memory").(int)
-	if newMemory <= 0 {
-		return diag.Errorf("Bad memory format")
-	}
 	if actualMemory != newMemory {
 		parameters = append(parameters, "memory")
 		vm.Spec.Memory.SizeMB = newMemory
@@ -257,9 +254,6 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	// Setting new amount of CPUs
 	actualCPUCount := vm.Spec.CPU.Count
 	newCPUCount := d.Get("cpus").(int)
-	if newCPUCount <= 0 {
-		return diag.Errorf("Bad CPUs format")
-	}
 	if actualCPUCount != newCPUCount {
 		parameters = append(parameters, "cpus")
 		vm.Spec.CPU.Count = newCPUCount
@@ -278,10 +272,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	d.SetId(vm.UUIDOrName())
 
 	// Updating state
-	status, err := validateStatus(d)
-	if err != nil {
-		return diag.Errorf("%s", err.Error())
-	}
+	status := d.Get("status").(string)
 
 	logrus.Printf("%s -> %s", vm.Spec.State, status)
 	if status != string(vm.Spec.State) {
@@ -365,20 +356,46 @@ func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 	return err
 }
 
-func validateStatus(d *schema.ResourceData) (string, error) {
+func validateVmParams(d *schema.ResourceData) error {
+	amountOfProblems := 0
+	var error_output []string
+
+	cpus := d.Get("cpus").(int)
+	if cpus <= 0 || cpus >= runtime.NumCPU() {
+		error_output = append(error_output, fmt.Sprintf("Set the number of CPUs according to the following limits: 1 - %v", runtime.NumCPU()))
+		amountOfProblems++
+	}
+
+	memory := d.Get("memory").(int)
+	if memory <= 0 || memory > int(mem.TotalMemory()) {
+		error_output = append(error_output, fmt.Sprintf("Set the amount of memory according to the following limits: 1 - %v", mem.TotalMemory()))
+		amountOfProblems++
+	}
+
 	status := d.Get("status").(string)
 	switch status {
 	case "poweroff":
-		return status, nil
+		break
 	case "running":
-		return status, nil
+		break
 	case "paused":
-		return status, nil
+		break
 	case "saved":
-		return status, nil
+		break
 	case "aborted":
-		return status, nil
+		break
 	default:
-		return "", fmt.Errorf("Status does not match any of the existing ones\n - poweroff\n - runnning\n - paused \n - saved \n - aborted\n")
+		error_output = append(error_output, "Status does not match any of the existing ones\n - poweroff\n - runnning\n - paused \n - saved \n - aborted")
+		amountOfProblems++
 	}
+
+	if amountOfProblems == 0 {
+		return nil
+	}
+
+	report := "\n"
+	for i := 1; i <= amountOfProblems; i++ {
+		report += fmt.Sprintf("%v) %s\n", i, error_output[i-1])
+	}
+	return fmt.Errorf(report)
 }
