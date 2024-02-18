@@ -74,6 +74,34 @@ func resourceVM() *schema.Resource {
 				Optional:    true,
 				ForceNew:    true,
 			},
+			"network_adapter": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"network_mode": {
+							Description: "nat, hostonly etc",
+							Type:        schema.TypeString,
+							Optional:    true,
+							Default:     "none",
+						},
+						"network_name": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"nic_type": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "Am79C970A",
+						},
+						"cable_connected": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+					},
+				},
+			},
 			"user_data": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -88,6 +116,8 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	name := d.Get("name").(string)
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
+	nicNumber := d.Get("network_adapter.#").(int)
+	adapters := make([]vbg.NIC, 0, nicNumber)
 
 	// Making new folders for VirtualMachine data
 	homedir, _ := os.UserHomeDir()
@@ -142,7 +172,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	// Creating VM with specified parametrs
-	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype)
+	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, adapters, nicNumber)
 	if err != nil {
 		logrus.Fatalf("Creation VM failed: %s", err.Error())
 		return diag.Errorf("Creation VM failed: %s", err.Error())

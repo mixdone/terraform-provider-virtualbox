@@ -17,7 +17,7 @@ const (
 )
 
 // create VM with chosen loading type
-func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType) (*vbg.VirtualMachine, error) {
+func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, adapters []vbg.NIC, nicNumber int) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
 	var vdiDisk string
 	switch ltype {
@@ -89,6 +89,18 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		disks = []vbg.Disk{}
 	}
 
+	logrus.Infoln("nic number", nicNumber)
+
+	var NICs [4]vbg.NIC
+
+	for i, adapter := range adapters {
+		NICs[i].Index = 1
+		NICs[i].NetworkName = adapter.NetworkName
+		NICs[i].Mode = vbg.NetworkMode(adapter.Mode)
+		NICs[i].Type = vbg.NICType(adapter.Type)
+		NICs[i].CableConnected = adapter.CableConnected
+	}
+
 	// Parameters of the virtual machine
 	spec := &vbg.VirtualMachineSpec{
 		Name:   vmName,
@@ -96,6 +108,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		CPU:    vbg.CPU{Count: CPUs},
 		Memory: vbg.Memory{SizeMB: memory},
 		Disks:  disks,
+		NICs:   adapters,
 	}
 
 	vm := &vbg.VirtualMachine{
@@ -114,9 +127,21 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		return nil, err
 	}
 
-	// Set CPUs and memory
-	vb.SetCPUCount(vm, vm.Spec.CPU.Count)
-	vb.SetMemory(vm, vm.Spec.Memory.SizeMB)
+	// Set Network adapter, CPUs and memory
+	if err := vb.ModifyVM(vm, []string{"memory"}); err != nil {
+		logrus.Errorf("VM set memory: %s", err.Error())
+		return nil, err
+	}
+
+	if err := vb.ModifyVM(vm, []string{"cpus"}); err != nil {
+		logrus.Errorf("VM set cpus: %s", err.Error())
+		return nil, err
+	}
+
+	if err := vb.ModifyVM(vm, []string{"network_adapter"}); err != nil {
+		logrus.Errorf("VM set network: %s", err.Error())
+		return nil, err
+	}
 
 	// Connecting a disk to a virtual machine
 	if ltype != empty {
