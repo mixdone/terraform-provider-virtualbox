@@ -93,12 +93,12 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 
 	var NICs [4]vbg.NIC
 
-	for i, adapter := range adapters {
+	for i := 0; i < nicNumber; i++ {
 		NICs[i].Index = 1
-		NICs[i].NetworkName = adapter.NetworkName
-		NICs[i].Mode = vbg.NetworkMode(adapter.Mode)
-		NICs[i].Type = vbg.NICType(adapter.Type)
-		NICs[i].CableConnected = adapter.CableConnected
+		NICs[i].NetworkName = adapters[i].NetworkName
+		NICs[i].Mode = vbg.NetworkMode(adapters[i].Mode)
+		NICs[i].Type = vbg.NICType(adapters[i].Type)
+		NICs[i].CableConnected = adapters[i].CableConnected
 	}
 
 	// Parameters of the virtual machine
