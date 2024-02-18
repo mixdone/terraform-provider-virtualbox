@@ -46,7 +46,7 @@ func resourceVM() *schema.Resource {
 				Default:     128,
 			},
 
-			"vdi": {
+			"vdi_size": {
 				Description: "VDI size in MB.",
 				Type:        schema.TypeInt,
 				Optional:    true,
@@ -113,7 +113,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	name := d.Get("name").(string)
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
-	vdi := int64(d.Get("vdi").(int))
+	vdi_size := d.Get("vdi_size").(int64)
 	os_id := d.Get("os_id").(string)
 
 	// Making new folders for VirtualMachine data
@@ -169,7 +169,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	// Creating VM with specified parametrs
-	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, vdi, os_id)
+	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, vdi_size, os_id)
 	if err != nil {
 		return diag.Errorf("Creation VM failed: %s", err.Error())
 	}
@@ -178,11 +178,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	d.SetId(vm.UUIDOrName())
 
 	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
-	vm, err = vb.VMInfo(d.Id())
 
+	vm, err = vb.VMInfo(d.Id())
 	if err != nil {
 		d.SetId("")
-		logrus.Fatalf("VMInfo failed: %s", err.Error())
 		return diag.Errorf("VMInfo failed: %s", err.Error())
 	}
 
@@ -190,12 +189,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	if status != "poweroff" {
 		if _, err := vb.ControlVM(vm, status); err != nil {
-			logrus.Fatalf("Unable to running VM: %s", err.Error())
 			return diag.Errorf("Unable to running VM: %s", err.Error())
 		}
 		vm.Spec.State = vbg.VirtualMachineState(status)
 		if err = setState(d, vm); err != nil {
-			logrus.Fatalf("Setting state failed: %s", err.Error())
 			return diag.Errorf("Setting state failed: %s", err.Error())
 		}
 	}
