@@ -113,7 +113,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	name := d.Get("name").(string)
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
-	vdi_size := d.Get("vdi_size").(int64)
+	vdi_size := int64(d.Get("vdi_size").(int))
 	os_id := d.Get("os_id").(string)
 
 	// Making new folders for VirtualMachine data
