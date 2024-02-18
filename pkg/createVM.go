@@ -17,7 +17,7 @@ const (
 )
 
 // create VM with chosen loading type
-func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType) (*vbg.VirtualMachine, error) {
+func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, vdi int64, os_id string) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
 	var vdiDisk string
 	switch ltype {
@@ -48,7 +48,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	disk_VDI := vbg.Disk{
 		Path:       vdiDisk,
 		Format:     vbg.VDI,
-		SizeMB:     15000,
+		SizeMB:     vdi,
 		Type:       "hdd",
 		Controller: sata,
 	}
@@ -92,7 +92,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	// Parameters of the virtual machine
 	spec := &vbg.VirtualMachineSpec{
 		Name:   vmName,
-		OSType: vbg.Ubuntu64,
+		OSType: vbg.OSType{ID: os_id},
 		CPU:    vbg.CPU{Count: CPUs},
 		Memory: vbg.Memory{SizeMB: memory},
 		Disks:  disks,

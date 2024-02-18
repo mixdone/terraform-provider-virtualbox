@@ -1,21 +1,24 @@
+
 resource "virtualbox_server" "VM_without_image" {
-    count     = 0
+    count     = 1
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
-    cpus      = 1
-    memory    = 10000
-    status = "poweroff"
+    cpus      = 3
+    memory    = 1000
+    status = "running"
+    os_id = "Windows7_64"
 }
 
-# resource "virtualbox_server" "VM_VDI" {
-#     count     = 2
-#     name      = format("VM_VDI-%02d", count.index + 1)
-#     basedir = format("VM_VDI-%02d", count.index + 1)
-#     cpus      = 2
-#     memory    = 500
-#     url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
-#     status = "poweroff"
-# }
+resource "virtualbox_server" "VM_VDI" {
+    count     = 1
+    name      = format("VM_VDI-%02d", count.index + 1)
+    basedir = format("VM_VDI-%02d", count.index + 1)
+    cpus      = 2
+    memory    = 500
+    url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+    status = "poweroff"
+    vdi = 25000
+}
 
 # resource "virtualbox_server" "VM_ISO" {
 #     count     = 0

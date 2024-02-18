@@ -9,7 +9,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
+	"github.com/mixdone/terraform-provider-virtualbox/pkg"
 	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
 
@@ -46,6 +46,13 @@ func resourceVM() *schema.Resource {
 				Default:     128,
 			},
 
+			"vdi": {
+				Description: "VDI size in MB.",
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     15000,
+			},
+
 			"vmgroup": {
 				Description: "Group of Virtual Machines.",
 				Type:        schema.TypeString,
@@ -59,28 +66,39 @@ func resourceVM() *schema.Resource {
 				Optional:    true,
 				Default:     2,
 			},
+
 			"status": {
 				Description: "Status of Virtual Machine.",
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "poweroff",
 			},
+
 			"image": {
 				Description: "Path to image that is located on the host.",
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
 			},
+
 			"url": {
 				Description: "The link from which the image or disk will be downloaded.",
 				Type:        schema.TypeString,
 				Optional:    true,
 				ForceNew:    true,
 			},
+
 			"user_data": {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  "",
+			},
+
+			"os_id": {
+				Description: "Specifies the guest OS to run in the VM.",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "Ubuntu_64",
 			},
 		},
 	}
@@ -95,6 +113,8 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	name := d.Get("name").(string)
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
+	vdi := int64(d.Get("vdi").(int))
+	os_id := d.Get("os_id").(string)
 
 	// Making new folders for VirtualMachine data
 	homedir, err := os.UserHomeDir()
@@ -149,13 +169,37 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	// Creating VM with specified parametrs
-	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype)
+	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, vdi, os_id)
 	if err != nil {
 		return diag.Errorf("Creation VM failed: %s", err.Error())
 	}
 
 	// Setting the VM id for Terraform
 	d.SetId(vm.UUIDOrName())
+
+	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
+	vm, err = vb.VMInfo(d.Id())
+
+	if err != nil {
+		d.SetId("")
+		logrus.Fatalf("VMInfo failed: %s", err.Error())
+		return diag.Errorf("VMInfo failed: %s", err.Error())
+	}
+
+	status := d.Get("status").(string)
+
+	if status != "poweroff" {
+		if _, err := vb.ControlVM(vm, status); err != nil {
+			logrus.Fatalf("Unable to running VM: %s", err.Error())
+			return diag.Errorf("Unable to running VM: %s", err.Error())
+		}
+		vm.Spec.State = vbg.VirtualMachineState(status)
+		if err = setState(d, vm); err != nil {
+			logrus.Fatalf("Setting state failed: %s", err.Error())
+			return diag.Errorf("Setting state failed: %s", err.Error())
+		}
+	}
+
 	return resourceVirtualBoxRead(ctx, d, m)
 }
 
@@ -257,6 +301,14 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	if actualCPUCount != newCPUCount {
 		parameters = append(parameters, "cpus")
 		vm.Spec.CPU.Count = newCPUCount
+	}
+
+	// Setting new os type
+	actualOs_id := vm.Spec.OSType.ID
+	newOs_id := d.Get("os_id").(string)
+	if actualOs_id != newOs_id {
+		parameters = append(parameters, "ostype")
+		vm.Spec.OSType.ID = newOs_id
 	}
 
 	// Modify VM
