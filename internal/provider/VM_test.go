@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mixdone/terraform-provider-virtualbox/internal/provider/pkg"
+	"github.com/mixdone/terraform-provider-virtualbox/pkg"
 	vbg "github.com/mixdone/virtualbox-go"
 	"github.com/sirupsen/logrus"
 )
@@ -270,6 +270,8 @@ func Test_ControlVM(t *testing.T) {
 	name := "test_ControlVM"
 	memory := 1024
 	cpus := 2
+	vdi := int64(15000)
+	os_id := "Ubuntu_64"
 	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
 	basedir := "VMS1"
 	homedir, _ := os.UserHomeDir()
@@ -289,7 +291,7 @@ func Test_ControlVM(t *testing.T) {
 
 	defer os.RemoveAll(installedData)
 
-	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype)
+	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype, vdi, os_id)
 	if err != nil {
 		logrus.Fatalf("Creation VM failed: %s", err.Error())
 	}
@@ -332,6 +334,8 @@ func Test_ModifyVM(t *testing.T) {
 	name := "test_ModifyVM"
 	memory := 1024
 	cpus := 2
+	vdi := int64(15000)
+	os_id := "Ubuntu_64"
 	url := "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
 	basedir := "VMS1"
 	homedir, _ := os.UserHomeDir()
@@ -351,7 +355,7 @@ func Test_ModifyVM(t *testing.T) {
 
 	defer os.RemoveAll(installedData)
 
-	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype)
+	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype, vdi, os_id)
 	if err != nil {
 		logrus.Fatalf("Creation VM failed: %s", err.Error())
 	}

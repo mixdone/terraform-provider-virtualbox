@@ -1,6 +1,7 @@
 package pkg
 
 import (
+	"fmt"
 	"path/filepath"
 
 	vbg "github.com/mixdone/virtualbox-go"
@@ -17,7 +18,7 @@ const (
 )
 
 // create VM with chosen loading type
-func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, NICs [4]vbg.NIC) (*vbg.VirtualMachine, error) {
+func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, vdi_size int64, os_id string) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
 	var vdiDisk string
 	switch ltype {
@@ -48,7 +49,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	disk_VDI := vbg.Disk{
 		Path:       vdiDisk,
 		Format:     vbg.VDI,
-		SizeMB:     15000,
+		SizeMB:     vdi_size,
 		Type:       "hdd",
 		Controller: sata,
 	}
@@ -74,8 +75,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 
 	if ltype == imageloading {
 		if err := vb.CreateDisk(&disk_VDI); err != nil {
-			logrus.Fatalf("Disk creation failed: %s", err.Error())
-			return nil, err
+			return nil, fmt.Errorf("disk creation failed: %s", err.Error())
 		}
 	}
 
@@ -92,11 +92,10 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	// Parameters of the virtual machine
 	spec := &vbg.VirtualMachineSpec{
 		Name:   vmName,
-		OSType: vbg.Ubuntu64,
+		OSType: vbg.OSType{ID: os_id},
 		CPU:    vbg.CPU{Count: CPUs},
 		Memory: vbg.Memory{SizeMB: memory},
 		Disks:  disks,
-		NICs:   NICs[:],
 	}
 
 	vm := &vbg.VirtualMachine{
@@ -106,54 +105,41 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	logrus.Infoln("Creating VM with CPU and memory", vm.Spec.CPU, vm.Spec.Memory)
 
 	if err := vb.CreateVM(vm); err != nil {
-		logrus.Errorf("VM creation failed: %s", err.Error())
-		return nil, err
+		return nil, fmt.Errorf("VM creation failed: %s", err.Error())
 	}
 
 	if err := vb.RegisterVM(vm); err != nil {
-		logrus.Errorf("Failed registering vm")
-		return nil, err
+		return nil, fmt.Errorf("failed registering vm: %s", err.Error())
 	}
 
-	// Set Network adapter, CPUs and memory
-	if err := vb.ModifyVM(vm, []string{"memory"}); err != nil {
-		logrus.Errorf("VM set memory: %s", err.Error())
-		return nil, err
+	// Set CPUs and memory
+	if err := vb.SetCPUCount(vm, vm.Spec.CPU.Count); err != nil {
+		return nil, fmt.Errorf("set CPU Count failed: %s", err.Error())
 	}
 
-	if err := vb.ModifyVM(vm, []string{"cpus"}); err != nil {
-		logrus.Errorf("VM set cpus: %s", err.Error())
-		return nil, err
-	}
-
-	if err := vb.ModifyVM(vm, []string{"network_adapter"}); err != nil {
-		logrus.Errorf("VM set network: %s", err.Error())
-		return nil, err
+	if err := vb.SetMemory(vm, vm.Spec.Memory.SizeMB); err != nil {
+		return nil, fmt.Errorf("set memory failed: %s", err.Error())
 	}
 
 	// Connecting a disk to a virtual machine
 	if ltype != empty {
 		if err := vb.AddStorageController(vm, storageController1); err != nil {
-			logrus.Errorf("Add SATA controller error: %s", err.Error())
-			return nil, err
+			return nil, fmt.Errorf("add SATA controller error: %s", err.Error())
 		}
 
 		if err := vb.AttachStorage(vm, &disk_VDI); err != nil {
-			logrus.Errorf("Attach error: %s", err.Error())
-			return nil, err
+			return nil, fmt.Errorf("attach error: %s", err.Error())
 		}
 	}
 
 	if ltype == imageloading {
 		// Connecting the installation disk image
 		if err := vb.AddStorageController(vm, storageController2); err != nil {
-			logrus.Errorf("Add IDE controller error: %s", err.Error())
-			return nil, err
+			return nil, fmt.Errorf("add IDE controller error: %s", err.Error())
 		}
 
 		if err := vb.AttachStorage(vm, &disk_ISO); err != nil {
-			logrus.Errorf("Attach error: %s", err.Error())
-			return nil, err
+			return nil, fmt.Errorf("attach error: %s", err.Error())
 		}
 	}
 
