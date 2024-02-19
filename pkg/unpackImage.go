@@ -22,32 +22,27 @@ func FileDownload(url, fpath string) (string, error) {
 
 	out, err := os.Create(path.String())
 	if err != nil {
-		logrus.Fatalf("Creation file failed: %s", err.Error())
-		return "", err
+		return "", fmt.Errorf("creation file failed: %s", err.Error())
 	}
 	defer out.Close()
 
 	headResp, err := http.Head(url)
 	if err != nil {
-		logrus.Fatalf("Http head failed: %s", err.Error())
-		return "", err
+		return "", fmt.Errorf("http head failed: %s", err.Error())
 	}
 	defer headResp.Body.Close()
 
 	resp, err := http.Get(url)
 	if err != nil {
-		logrus.Fatalf("Http get failed: %s", err.Error())
-		return "", err
+		return "", fmt.Errorf("http get failed: %s", err.Error())
 	}
 	defer resp.Body.Close()
 
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
-		logrus.Fatalf("Copy failed: %s", err.Error())
-		return "", err
+		return "", fmt.Errorf("hopy failed: %s", err.Error())
 	}
 
-	fmt.Print(" 100%\n")
 	logrus.Print("Downloading completed")
 	return path.String(), nil
 }
@@ -56,20 +51,17 @@ func FileDownload(url, fpath string) (string, error) {
 func UnpackImage(imageArchive, destDir string) (string, error) {
 	a, err := os.Open(imageArchive)
 	if err != nil {
-		logrus.Fatalf("Open archive failed: %s", err.Error())
-		return "", err
+		return "", fmt.Errorf("open archive failed: %s", err.Error())
 	}
 	defer a.Close()
 
 	if err = archiver.Unarchive(imageArchive, destDir); err != nil {
-		logrus.Fatalf("Unarchiving failed: %s", err.Error())
-		return "", err
+		return "", fmt.Errorf("unarchiving failed: %s", err.Error())
 	}
 
 	files, err := os.ReadDir(destDir)
 	if err != nil {
-		logrus.Fatalf("Read dir failde: %s", err.Error())
-		return "", err
+		return "", fmt.Errorf("read dir failde: %s", err.Error())
 	}
 
 	return filepath.Join(destDir, files[0].Name()), nil
