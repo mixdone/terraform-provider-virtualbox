@@ -79,6 +79,10 @@ func resourceVM() *schema.Resource {
 				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
+						"index": {
+							Type:     schema.TypeInt,
+							Required: true,
+						},
 						"network_mode": {
 							Description: "nat, hostonly etc",
 							Type:        schema.TypeString,
@@ -116,10 +120,8 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	name := d.Get("name").(string)
 	cpus := d.Get("cpus").(int)
 	memory := d.Get("memory").(int)
-	nicNumber := d.Get("network_adapter.#").(int)
-	adapters := make([]vbg.NIC, 0, nicNumber)
 
-	// Making new folders for VirtualMachine data
+	// Making new folders for VirtualMacshine data
 	homedir, _ := os.UserHomeDir()
 	machinesDir := filepath.Join(homedir, d.Get("basedir").(string))
 	installedData := filepath.Join(machinesDir, "InstalledData")
@@ -171,8 +173,38 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	var NICs [4]vbg.NIC
+
+	nicNumber := d.Get("network_adapter.#").(int)
+	if nicNumber > 4 {
+		nicNumber = 4
+	}
+	for i := 0; i < nicNumber; i++ {
+		requestIndex := fmt.Sprintf("network_adapter.%d.index", i)
+		currentIndex := d.Get(requestIndex).(int)
+
+		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
+		currentMode := d.Get(requestMode).(string)
+
+		requestName := fmt.Sprintf("network_adapter.%d.network_name", i)
+		currentName := d.Get(requestName).(string)
+
+		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
+		currentType := d.Get(requestType).(string)
+
+		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
+		currentCable := d.Get(requestCable).(bool)
+
+		NICs[currentIndex-1].Index = currentIndex
+		NICs[currentIndex-1].Mode = vbg.NetworkMode(currentMode)
+		NICs[currentIndex-1].NetworkName = currentName
+		NICs[currentIndex-1].Type = vbg.NICType(currentType)
+		NICs[currentIndex-1].CableConnected = currentCable
+
+	}
+
 	// Creating VM with specified parametrs
-	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, adapters, nicNumber)
+	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, NICs)
 	if err != nil {
 		logrus.Fatalf("Creation VM failed: %s", err.Error())
 		return diag.Errorf("Creation VM failed: %s", err.Error())

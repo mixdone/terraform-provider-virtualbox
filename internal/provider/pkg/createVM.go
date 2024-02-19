@@ -17,7 +17,7 @@ const (
 )
 
 // create VM with chosen loading type
-func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, adapters []vbg.NIC, nicNumber int) (*vbg.VirtualMachine, error) {
+func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, NICs [4]vbg.NIC) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
 	var vdiDisk string
 	switch ltype {
@@ -89,18 +89,6 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		disks = []vbg.Disk{}
 	}
 
-	logrus.Infoln("nic number", nicNumber)
-
-	var NICs [4]vbg.NIC
-
-	for i := 0; i < nicNumber; i++ {
-		NICs[i].Index = 1
-		NICs[i].NetworkName = adapters[i].NetworkName
-		NICs[i].Mode = vbg.NetworkMode(adapters[i].Mode)
-		NICs[i].Type = vbg.NICType(adapters[i].Type)
-		NICs[i].CableConnected = adapters[i].CableConnected
-	}
-
 	// Parameters of the virtual machine
 	spec := &vbg.VirtualMachineSpec{
 		Name:   vmName,
@@ -108,7 +96,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		CPU:    vbg.CPU{Count: CPUs},
 		Memory: vbg.Memory{SizeMB: memory},
 		Disks:  disks,
-		NICs:   adapters,
+		NICs:   NICs[:],
 	}
 
 	vm := &vbg.VirtualMachine{
