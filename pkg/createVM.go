@@ -17,21 +17,33 @@ const (
 	empty
 )
 
+type VMConfig struct {
+	Name       string
+	CPUs       int
+	Memory     int
+	Image_path string
+	Dirname    string
+	Ltype      LoadingType
+	Vdi_size   int64
+	OS_id      string
+	Group      string
+}
+
 // create VM with chosen loading type
-func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, vdi_size int64, os_id string) (*vbg.VirtualMachine, error) {
+func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
 	var vdiDisk string
-	switch ltype {
+	switch vmCfg.Ltype {
 	case vdiLoading:
-		vdiDisk = image_path
+		vdiDisk = vmCfg.Image_path
 	case imageloading:
-		vdiDisk = filepath.Base(image_path)
-		vdiDisk = vdiDisk[:len(vdiDisk)-len(filepath.Ext(vdiDisk))] + vmName + ".vdi"
-		vdiDisk = filepath.Join(dirName, vdiDisk)
+		vdiDisk = filepath.Base(vmCfg.Image_path)
+		vdiDisk = vdiDisk[:len(vdiDisk)-len(filepath.Ext(vdiDisk))] + vmCfg.Name + ".vdi"
+		vdiDisk = filepath.Join(vmCfg.Dirname, vdiDisk)
 	}
 
 	vb := vbg.NewVBox(vbg.Config{
-		BasePath: dirName,
+		BasePath: vmCfg.Dirname,
 	})
 
 	storageController1 := vbg.StorageController{
@@ -49,7 +61,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	disk_VDI := vbg.Disk{
 		Path:       vdiDisk,
 		Format:     vbg.VDI,
-		SizeMB:     vdi_size,
+		SizeMB:     vmCfg.Vdi_size,
 		Type:       "hdd",
 		Controller: sata,
 	}
@@ -68,19 +80,19 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	}
 
 	disk_ISO := vbg.Disk{
-		Path:       image_path,
+		Path:       vmCfg.Image_path,
 		Type:       "dvddrive",
 		Controller: ide,
 	}
 
-	if ltype == imageloading {
+	if vmCfg.Ltype == imageloading {
 		if err := vb.CreateDisk(&disk_VDI); err != nil {
 			return nil, fmt.Errorf("disk creation failed: %s", err.Error())
 		}
 	}
 
 	var disks []vbg.Disk
-	switch ltype {
+	switch vmCfg.Ltype {
 	case vdiLoading:
 		disks = []vbg.Disk{disk_VDI}
 	case imageloading:
@@ -91,11 +103,12 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 
 	// Parameters of the virtual machine
 	spec := &vbg.VirtualMachineSpec{
-		Name:   vmName,
-		OSType: vbg.OSType{ID: os_id},
-		CPU:    vbg.CPU{Count: CPUs},
-		Memory: vbg.Memory{SizeMB: memory},
+		Name:   vmCfg.Name,
+		OSType: vbg.OSType{ID: vmCfg.OS_id},
+		CPU:    vbg.CPU{Count: vmCfg.CPUs},
+		Memory: vbg.Memory{SizeMB: vmCfg.Memory},
 		Disks:  disks,
+		Group:  vmCfg.Group,
 	}
 
 	vm := &vbg.VirtualMachine{
@@ -122,7 +135,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 	}
 
 	// Connecting a disk to a virtual machine
-	if ltype != empty {
+	if vmCfg.Ltype != empty {
 		if err := vb.AddStorageController(vm, storageController1); err != nil {
 			return nil, fmt.Errorf("add SATA controller error: %s", err.Error())
 		}
@@ -132,7 +145,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		}
 	}
 
-	if ltype == imageloading {
+	if vmCfg.Ltype == imageloading {
 		// Connecting the installation disk image
 		if err := vb.AddStorageController(vm, storageController2); err != nil {
 			return nil, fmt.Errorf("add IDE controller error: %s", err.Error())

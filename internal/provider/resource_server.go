@@ -53,11 +53,10 @@ func resourceVM() *schema.Resource {
 				Default:     15000,
 			},
 
-			"vmgroup": {
+			"group": {
 				Description: "Group of Virtual Machines.",
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "hello",
 			},
 
 			"cpus": {
@@ -98,7 +97,7 @@ func resourceVM() *schema.Resource {
 				Description: "Specifies the guest OS to run in the VM.",
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "Ubuntu_64",
+				Default:     "Linux_64",
 			},
 		},
 	}
@@ -110,11 +109,19 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Errorf(err.Error())
 	}
 
-	name := d.Get("name").(string)
-	cpus := d.Get("cpus").(int)
-	memory := d.Get("memory").(int)
-	vdi_size := int64(d.Get("vdi_size").(int))
-	os_id := d.Get("os_id").(string)
+	var vmConf pkg.VMConfig
+
+	vmConf.Name = d.Get("name").(string)
+	vmConf.CPUs = d.Get("cpus").(int)
+	vmConf.Memory = d.Get("memory").(int)
+	vmConf.Vdi_size = int64(d.Get("vdi_size").(int))
+	vmConf.OS_id = d.Get("os_id").(string)
+	_, ok := d.GetOk("group")
+	if !ok {
+		vmConf.Group = ""
+	} else {
+		vmConf.Group = d.Get("group").(string)
+	}
 
 	// Making new folders for VirtualMachine data
 	homedir, err := os.UserHomeDir()
@@ -124,6 +131,8 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	machinesDir := filepath.Join(homedir, d.Get("basedir").(string))
 	installedData := filepath.Join(machinesDir, "InstalledData")
+
+	vmConf.Dirname = installedData
 
 	if err := os.MkdirAll(machinesDir, 0740); err != nil {
 		return diag.Errorf("Creation VirtualMachines foldier failed: %s", err.Error())
@@ -153,7 +162,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 					return diag.Errorf("File unpaking failed: %s", err.Error())
 				}
 				basePath := filepath.Base(imagePath)
-				basePath = basePath[:len(basePath)-len(filepath.Ext(basePath))] + name + filepath.Ext(basePath)
+				basePath = basePath[:len(basePath)-len(filepath.Ext(basePath))] + vmConf.Name + filepath.Ext(basePath)
 				image = filepath.Join(imagePath[:len(imagePath)-len(filepath.Base(imagePath))], basePath)
 				os.Rename(imagePath, image)
 			} else {
@@ -168,8 +177,11 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	vmConf.Ltype = ltype
+	vmConf.Image_path = image
+
 	// Creating VM with specified parametrs
-	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, vdi_size, os_id)
+	vm, err := pkg.CreateVM(vmConf)
 	if err != nil {
 		return diag.Errorf("Creation VM failed: %s", err.Error())
 	}
