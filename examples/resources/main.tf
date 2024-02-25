@@ -1,13 +1,13 @@
 
 resource "virtualbox_server" "VM_without_image" {
-    count     = 1
+    count     = 0
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
     cpus      = 3
-    memory    = 1000
-    status = "running"
+    memory    = 2500
+    status = "poweroff"
     os_id = "Windows7_64"
-    group = "hello"
+    group = "/man"
 }
 
 # resource "virtualbox_server" "bad_VM_example" {

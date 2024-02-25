@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -57,6 +58,7 @@ func resourceVM() *schema.Resource {
 				Description: "Group of Virtual Machines.",
 				Type:        schema.TypeString,
 				Optional:    true,
+				Default:     "",
 			},
 
 			"cpus": {
@@ -116,12 +118,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.Memory = d.Get("memory").(int)
 	vmConf.Vdi_size = int64(d.Get("vdi_size").(int))
 	vmConf.OS_id = d.Get("os_id").(string)
-	_, ok := d.GetOk("group")
-	if !ok {
-		vmConf.Group = ""
-	} else {
-		vmConf.Group = d.Get("group").(string)
-	}
+	vmConf.Group = d.Get("group").(string)
 
 	// Making new folders for VirtualMachine data
 	homedir, err := os.UserHomeDir()
@@ -132,7 +129,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	machinesDir := filepath.Join(homedir, d.Get("basedir").(string))
 	installedData := filepath.Join(machinesDir, "InstalledData")
 
-	vmConf.Dirname = installedData
+	vmConf.Dirname = machinesDir
 
 	if err := os.MkdirAll(machinesDir, 0740); err != nil {
 		return diag.Errorf("Creation VirtualMachines foldier failed: %s", err.Error())
@@ -214,8 +211,13 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 
 func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Getting Machine by id
-	homedir, _ := os.UserHomeDir()
-	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return diag.Errorf("userhomedir failed: %s", err.Error())
+	}
+
+	basePath := filepath.Join(homedir, d.Get("basedir").(string))
+	vb := vbg.NewVBox(vbg.Config{BasePath: basePath})
 	vm, err := vb.VMInfo(d.Id())
 
 	if err != nil {
@@ -320,6 +322,12 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		vm.Spec.OSType.ID = newOs_id
 	}
 
+	group := d.Get("group").(string)
+	if vm.Spec.Group != group {
+		parameters = append(parameters, "group")
+		vm.Spec.Group = group
+	}
+
 	// Modify VM
 	if len(parameters) != 0 {
 		err = vb.ModifyVM(vm, parameters)
@@ -363,6 +371,8 @@ func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, erro
 	}
 }
 
+var delMutex sync.Mutex
+
 func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Getting VM by id
 	homedir, err := os.UserHomeDir()
@@ -383,9 +393,10 @@ func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m int
 
 	// Unresitering VM
 	if err = vb.UnRegisterVM(vm); err != nil {
-		return diag.Errorf("VM Unregiste failed: %s", err.Error())
+		return diag.Errorf("VM Unregister failed: %s", err.Error())
 	}
 
+	delMutex.Lock()
 	// VM deletion
 	if err = vb.DeleteVM(vm); err != nil {
 		return diag.Errorf("VM deletion failed: %s", err.Error())
@@ -396,6 +407,7 @@ func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m int
 	if err := os.RemoveAll(machineDir); err != nil {
 		return diag.Errorf("Can't clear the data: %s", err.Error())
 	}
+	defer delMutex.Unlock()
 
 	return nil
 }
