@@ -18,7 +18,7 @@ const (
 )
 
 // create VM with chosen loading type
-func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, vdi_size int64, os_id string) (*vbg.VirtualMachine, error) {
+func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype LoadingType, vdi_size int64, os_id string, NICs [4]vbg.NIC) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
 	var vdiDisk string
 	switch ltype {
@@ -96,6 +96,7 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 		CPU:    vbg.CPU{Count: CPUs},
 		Memory: vbg.Memory{SizeMB: memory},
 		Disks:  disks,
+		NICs:   NICs[:],
 	}
 
 	vm := &vbg.VirtualMachine{
@@ -119,6 +120,10 @@ func CreateVM(vmName string, CPUs, memory int, image_path, dirName string, ltype
 
 	if err := vb.SetMemory(vm, vm.Spec.Memory.SizeMB); err != nil {
 		return nil, fmt.Errorf("set memory failed: %s", err.Error())
+	}
+
+	if err := vb.ModifyVM(vm, []string{"network_adapter"}); err != nil {
+		return nil, fmt.Errorf("set network failed: %s", err.Error())
 	}
 
 	// Connecting a disk to a virtual machine

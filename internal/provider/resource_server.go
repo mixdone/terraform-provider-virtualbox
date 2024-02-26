@@ -230,7 +230,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	// Creating VM with specified parametrs
-	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, vdi_size, os_id)
+	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, vdi_size, os_id, NICs)
 	if err != nil {
 		return diag.Errorf("Creation VM failed: %s", err.Error())
 	}
@@ -276,6 +276,11 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	if err := setState(d, vm); err != nil {
 		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
 	}
+	/*
+		if err := setNetwork(d, vm); err != nil {
+			return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
+		}
+	*/
 
 	// Set name of Machine for Terraform
 	if err := d.Set("name", vm.Spec.Name); err != nil {
@@ -367,6 +372,49 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	if actualOs_id != newOs_id {
 		parameters = append(parameters, "ostype")
 		vm.Spec.OSType.ID = newOs_id
+	}
+
+	// Setting new network adapters
+	nicNumber := d.Get("network_adapter.#").(int)
+	if nicNumber > 4 {
+		nicNumber = 4
+	}
+
+	needAppendNetwork := false
+	for i := 0; i < nicNumber; i++ {
+		requestIndex := fmt.Sprintf("network_adapter.%d.index", i)
+		currentIndex := d.Get(requestIndex).(int)
+
+		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
+		currentMode := vbg.NetworkMode(d.Get(requestMode).(string))
+		if currentMode != vm.Spec.NICs[currentIndex-1].Mode {
+			needAppendNetwork = true
+			vm.Spec.NICs[currentIndex-1].Mode = currentMode
+		}
+
+		requestName := fmt.Sprintf("network_adapter.%d.network_name", i)
+		currentName := d.Get(requestName).(string)
+		if currentName != vm.Spec.NICs[currentIndex-1].NetworkName {
+			needAppendNetwork = true
+			vm.Spec.NICs[currentIndex-1].NetworkName = currentName
+		}
+
+		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
+		currentType := d.Get(requestType).(string)
+		if vbg.NICType(currentType) != vm.Spec.NICs[currentIndex-1].Type {
+			needAppendNetwork = true
+			vm.Spec.NICs[currentIndex-1].Type = vbg.NICType(currentType)
+		}
+
+		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
+		currentCable := d.Get(requestCable).(bool)
+		if currentCable != vm.Spec.NICs[currentIndex-1].CableConnected {
+			needAppendNetwork = true
+			vm.Spec.NICs[currentIndex-1].CableConnected = currentCable
+		}
+	}
+	if needAppendNetwork {
+		parameters = append(parameters, "network_adapter")
 	}
 
 	// Modify VM
@@ -464,6 +512,65 @@ func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		err = d.Set("status", "aborted")
 	}
 	return err
+}
+
+func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
+	getType := func(nic vbg.NIC) string {
+		switch nic.Type {
+		case vbg.NIC_Am79C970A:
+			return "Am79C970A"
+		case vbg.NIC_Am79C973:
+			return "Am79C973"
+		case vbg.NIC_82540EM:
+			return "82540EM"
+		case vbg.NIC_82543GC:
+			return "82543GC"
+		case vbg.NIC_82545EM:
+			return "82545EM"
+		case vbg.NIC_virtio:
+			return "virtio"
+		default:
+			return ""
+		}
+	}
+
+	getMode := func(nic vbg.NIC) string {
+		switch nic.Mode {
+		case vbg.NWMode_none:
+			return "none"
+		case vbg.NWMode_null:
+			return "null"
+		case vbg.NWMode_nat:
+			return "nat"
+		case vbg.NWMode_natnetwork:
+			return "natnetwork"
+		case vbg.NWMode_bridged:
+			return "bridged"
+		case vbg.NWMode_intnet:
+			return "intnet"
+		case vbg.NWMode_hostonly:
+			return "hostonly"
+		case vbg.NWMode_generic:
+			return "generic"
+		default:
+			return ""
+		}
+	}
+
+	nics := make([]map[string]any, 4)
+	for _, nic := range vm.Spec.NICs {
+		nics[nic.Index]["index"] = nic.Index
+		nics[nic.Index]["network_mode"] = getMode(nic)
+		nics[nic.Index]["network_name"] = nic.NetworkName
+		nics[nic.Index]["nic_type"] = getType(nic)
+		nics[nic.Index]["cable_connected"] = nic.CableConnected
+	}
+
+	if err := d.Set("network_adapter", nics); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func validateVmParams(d *schema.ResourceData) error {
