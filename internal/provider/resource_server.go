@@ -276,11 +276,10 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	if err := setState(d, vm); err != nil {
 		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
 	}
-	/*
-		if err := setNetwork(d, vm); err != nil {
-			return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
-		}
-	*/
+
+	if err := setNetwork(d, vm); err != nil {
+		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
+	}
 
 	// Set name of Machine for Terraform
 	if err := d.Set("name", vm.Spec.Name); err != nil {

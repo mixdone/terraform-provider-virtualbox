@@ -35,14 +35,14 @@ resource "virtualbox_server" "VM_VDI" {
 
 resource "virtualbox_server" "VM_network" {
     count     = 1
-    name      = format("VM_without_image-%02d", count.index + 1)
-    basedir = format("VM_without_image-%02d", count.index + 1)
+    name      = format("VM_network-%02d", count.index + 1)
+    basedir = format("VM_network-%02d", count.index + 1)
     cpus      = 3
     memory    = 500
 
     network_adapter {
         index = 1
-        network_mode = "null"
+        network_mode = "none"
     }
     network_adapter {
         index = 2
