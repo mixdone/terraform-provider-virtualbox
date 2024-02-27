@@ -221,7 +221,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
 		currentCable := d.Get(requestCable).(bool)
 
-		NICs[currentIndex-1].Index = currentIndex
+		NICs[currentIndex-1].Index = i
 		NICs[currentIndex-1].Mode = vbg.NetworkMode(currentMode)
 		NICs[currentIndex-1].NetworkName = currentName
 		NICs[currentIndex-1].Type = vbg.NICType(currentType)
@@ -383,6 +383,10 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	for i := 0; i < nicNumber; i++ {
 		requestIndex := fmt.Sprintf("network_adapter.%d.index", i)
 		currentIndex := d.Get(requestIndex).(int)
+		if currentIndex != vm.Spec.NICs[currentIndex-1].Index {
+			needAppendNetwork = true
+			vm.Spec.NICs[currentIndex-1].Index = currentIndex
+		}
 
 		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
 		currentMode := vbg.NetworkMode(d.Get(requestMode).(string))
@@ -556,13 +560,16 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		}
 	}
 
-	nics := make([]map[string]any, 4)
+	nics := make([]map[string]any, 0, 1)
 	for _, nic := range vm.Spec.NICs {
-		nics[nic.Index]["index"] = nic.Index
-		nics[nic.Index]["network_mode"] = getMode(nic)
-		nics[nic.Index]["network_name"] = nic.NetworkName
-		nics[nic.Index]["nic_type"] = getType(nic)
-		nics[nic.Index]["cable_connected"] = nic.CableConnected
+		out := make(map[string]any)
+		out["index"] = nic.Index
+		out["network_mode"] = getMode(nic)
+		out["network_name"] = nic.NetworkName
+		out["nic_type"] = getType(nic)
+		out["cable_connected"] = nic.CableConnected
+
+		nics = append(nics, out)
 	}
 
 	if err := d.Set("network_adapter", nics); err != nil {
