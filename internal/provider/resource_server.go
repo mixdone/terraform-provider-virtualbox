@@ -221,7 +221,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
 		currentCable := d.Get(requestCable).(bool)
 
-		NICs[currentIndex-1].Index = i
+		NICs[currentIndex-1].Index = currentIndex
 		NICs[currentIndex-1].Mode = vbg.NetworkMode(currentMode)
 		NICs[currentIndex-1].NetworkName = currentName
 		NICs[currentIndex-1].Type = vbg.NICType(currentType)
