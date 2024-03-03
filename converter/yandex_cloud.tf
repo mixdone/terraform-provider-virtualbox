@@ -14,10 +14,11 @@ provider "yandex" {
 }
 
 resource "yandex_compute_instance" "VM1" {
-	name = "vm1"
+	count = 0
+	name = format("VM_without_image-%02d", count.index + 1)
 	boot_disk {
 		initialize_params {
-			image_id = "fd8auu58m9ic4rtekngm"
+			image_id = "fd889ece9aeiiolebods"
 		}
 	}
 	network_interface {
@@ -31,10 +32,11 @@ resource "yandex_compute_instance" "VM1" {
 }
 
 resource "yandex_compute_instance" "VM2" {
+	count = 2
 	name = "vm2"
 	boot_disk {
 		initialize_params {
-			image_id = "fd8auu58m9ic4rtekngm"
+			image_id = "fd86fg1oan7tm5mtjfcj"
 		}
 	}
 	network_interface {
@@ -51,7 +53,7 @@ resource "yandex_compute_instance" "VM3" {
 	name = "vm3"
 	boot_disk {
 		initialize_params {
-			image_id = "fd8auu58m9ic4rtekngm"
+			image_id = "fd81meavjdddbluejde1"
 		}
 	}
 	network_interface {
