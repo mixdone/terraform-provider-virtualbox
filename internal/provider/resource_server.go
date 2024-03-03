@@ -201,10 +201,16 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	var NICs [4]vbg.NIC
 
-	nicNumber := d.Get("network_adapter.#").(int)
-	if nicNumber > 4 {
-		nicNumber = 4
+	for i, nic := range NICs {
+		nic.Index = i
+		nic.NetworkName = ""
+		nic.Mode = "none"
+		nic.Type = "Am79C970A"
+		nic.CableConnected = false
 	}
+
+	nicNumber := d.Get("network_adapter.#").(int)
+
 	for i := 0; i < nicNumber; i++ {
 		requestIndex := fmt.Sprintf("network_adapter.%d.index", i)
 		currentIndex := d.Get(requestIndex).(int)
@@ -226,7 +232,6 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		NICs[currentIndex-1].NetworkName = currentName
 		NICs[currentIndex-1].Type = vbg.NICType(currentType)
 		NICs[currentIndex-1].CableConnected = currentCable
-
 	}
 
 	// Creating VM with specified parametrs
@@ -560,7 +565,7 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		}
 	}
 
-	nics := make([]map[string]any, 0, 1)
+	nics := make([]map[string]any, 4)
 	for _, nic := range vm.Spec.NICs {
 		out := make(map[string]any)
 		out["index"] = nic.Index
@@ -568,7 +573,6 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		out["network_name"] = nic.NetworkName
 		out["nic_type"] = getType(nic)
 		out["cable_connected"] = nic.CableConnected
-
 		nics = append(nics, out)
 	}
 
