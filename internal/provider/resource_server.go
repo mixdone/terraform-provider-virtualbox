@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -101,6 +100,31 @@ func resourceVM() *schema.Resource {
 				Optional:    true,
 				Default:     "Linux_64",
 			},
+
+			"snapshot": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+
+						"description": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+
+						"operation": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "take",
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -119,6 +143,15 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.Vdi_size = int64(d.Get("vdi_size").(int))
 	vmConf.OS_id = d.Get("os_id").(string)
 	vmConf.Group = d.Get("group").(string)
+
+	snapshots := d.Get("snapshot.#").(int)
+	if snapshots > 0 {
+		snapshots = 1
+		vmConf.Snapshot.Name = d.Get("snapshot.0.name").(string)
+		vmConf.Snapshot.Description = d.Get("snapshot.0.description").(string)
+	} else {
+		vmConf.Snapshot = vbg.Snapshot{Name: "", Description: ""}
+	}
 
 	// Making new folders for VirtualMachine data
 	homedir, err := os.UserHomeDir()
@@ -233,6 +266,15 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	// Set name of Machine for Terraform
 	if err := d.Set("name", vm.Spec.Name); err != nil {
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
+	}
+
+	arr := make([]map[string]interface{}, 1)
+	arr = append(arr, map[string]interface{}{
+		"name":        vm.Spec.Snapshot.Name,
+		"description": vm.Spec.Snapshot.Description,
+	})
+	if err := d.Set("snapshot", arr); err != nil {
+		return diag.Errorf("Didn't manage to set snapshot: %s", err.Error())
 	}
 
 	// Set CPUs amount for Terraform
@@ -355,7 +397,55 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	operation := d.Get("snapshot.0.operation").(string)
+
+	var snapshot vbg.Snapshot
+	snapshots := d.Get("snapshot.#").(int)
+	if snapshots > 0 {
+		snapshots = 1
+		snapshot.Name = d.Get("snapshot.0.name").(string)
+		snapshot.Description = d.Get("snapshot.0.description").(string)
+		if snapshot.Name == vm.Spec.Snapshot.Name && snapshot.Description != vm.Spec.Snapshot.Description {
+			if err := vb.EditSnapshot(vm, snapshot); err != nil {
+				return diag.Errorf("edit snapshot failed: %s", err.Error())
+			}
+		} else if snapshot.Name != "" {
+			if err := snapshotOperationsHandler(vb, vm, snapshot, operation, status); err != nil {
+				return diag.Errorf("snapshot failed: %s", err.Error())
+			}
+		}
+	}
+
 	return resourceVirtualBoxRead(ctx, d, m)
+}
+
+func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, snapshot vbg.Snapshot, operation string, status string) error {
+	var err error
+	switch operation {
+	case "take":
+		if snapshot.Name != vm.Spec.Snapshot.Name {
+			if status == "running" {
+				err = vb.TakeSnapshot(vm, snapshot, true)
+			} else {
+				err = vb.TakeSnapshot(vm, snapshot, false)
+			}
+		}
+		return err
+	case "delete":
+		return vb.DeleteSnapshot(vm, snapshot)
+	case "update":
+		if snapshot.Name != "" {
+			err = vb.EditSnapshot(vm, snapshot)
+		}
+		return err
+	case "restore":
+		if snapshot.Name != "" {
+			err = vb.RestoreSnapshot(vm, snapshot)
+		}
+		return err
+	default:
+		return fmt.Errorf("unknown snapshot operation\nUsage: operation=[take|delete|update|restore]")
+	}
 }
 
 func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
@@ -370,8 +460,6 @@ func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, erro
 		return false, fmt.Errorf("VMInfo failed: %s", err)
 	}
 }
-
-var delMutex sync.Mutex
 
 func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Getting VM by id
@@ -396,7 +484,6 @@ func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Errorf("VM Unregister failed: %s", err.Error())
 	}
 
-	delMutex.Lock()
 	// VM deletion
 	if err = vb.DeleteVM(vm); err != nil {
 		return diag.Errorf("VM deletion failed: %s", err.Error())
@@ -407,7 +494,6 @@ func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m int
 	if err := os.RemoveAll(machineDir); err != nil {
 		return diag.Errorf("Can't clear the data: %s", err.Error())
 	}
-	defer delMutex.Unlock()
 
 	return nil
 }

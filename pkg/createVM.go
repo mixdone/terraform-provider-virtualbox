@@ -27,6 +27,7 @@ type VMConfig struct {
 	Vdi_size   int64
 	OS_id      string
 	Group      string
+	Snapshot   vbg.Snapshot
 }
 
 // create VM with chosen loading type
@@ -103,12 +104,13 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 
 	// Parameters of the virtual machine
 	spec := &vbg.VirtualMachineSpec{
-		Name:   vmCfg.Name,
-		OSType: vbg.OSType{ID: vmCfg.OS_id},
-		CPU:    vbg.CPU{Count: vmCfg.CPUs},
-		Memory: vbg.Memory{SizeMB: vmCfg.Memory},
-		Disks:  disks,
-		Group:  vmCfg.Group,
+		Name:     vmCfg.Name,
+		OSType:   vbg.OSType{ID: vmCfg.OS_id},
+		CPU:      vbg.CPU{Count: vmCfg.CPUs},
+		Memory:   vbg.Memory{SizeMB: vmCfg.Memory},
+		Disks:    disks,
+		Group:    vmCfg.Group,
+		Snapshot: vmCfg.Snapshot,
 	}
 
 	vm := &vbg.VirtualMachine{
@@ -153,6 +155,13 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 
 		if err := vb.AttachStorage(vm, &disk_ISO); err != nil {
 			return nil, fmt.Errorf("attach error: %s", err.Error())
+		}
+	}
+
+	if vm.Spec.Snapshot.Name != "" {
+		err := vb.TakeSnapshot(vm, vm.Spec.Snapshot, false)
+		if err != nil {
+			return nil, fmt.Errorf("TakeSnapshot failed: %s", err.Error())
 		}
 	}
 
