@@ -25,7 +25,7 @@ resource "virtualbox_server" "VM_VDI" {
     basedir = format("VM_VDI-%02d", count.index + 1)
     cpus      = 2
     memory    = 500
-    url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+    //url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
     status = "poweroff"
     vdi_size = 25000
 }
