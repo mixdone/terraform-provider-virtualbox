@@ -94,17 +94,13 @@ func resourceVM() *schema.Resource {
 					Schema: map[string]*schema.Schema{
 						"index": {
 							Type:     schema.TypeInt,
-							Required: true,
+							Computed: true,
 						},
 						"network_mode": {
 							Description: "nat, hostonly etc",
 							Type:        schema.TypeString,
 							Optional:    true,
 							Default:     "none",
-						},
-						"network_name": {
-							Type:     schema.TypeString,
-							Optional: true,
 						},
 						"nic_type": {
 							Type:     schema.TypeString,
@@ -212,14 +208,11 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	nicNumber := d.Get("network_adapter.#").(int)
 
 	for i := 0; i < nicNumber; i++ {
-		requestIndex := fmt.Sprintf("network_adapter.%d.index", i)
-		currentIndex := d.Get(requestIndex).(int)
+		//requestIndex := fmt.Sprintf("network_adapter.%d.index", i)
+		//currentIndex := d.Get(requestIndex).(int)
 
 		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
 		currentMode := d.Get(requestMode).(string)
-
-		requestName := fmt.Sprintf("network_adapter.%d.network_name", i)
-		currentName := d.Get(requestName).(string)
 
 		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
 		currentType := d.Get(requestType).(string)
@@ -227,11 +220,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
 		currentCable := d.Get(requestCable).(bool)
 
-		NICs[currentIndex-1].Index = currentIndex
-		NICs[currentIndex-1].Mode = vbg.NetworkMode(currentMode)
-		NICs[currentIndex-1].NetworkName = currentName
-		NICs[currentIndex-1].Type = vbg.NICType(currentType)
-		NICs[currentIndex-1].CableConnected = currentCable
+		NICs[i].Index = i + 1
+		NICs[i].Mode = vbg.NetworkMode(currentMode)
+		NICs[i].Type = vbg.NICType(currentType)
+		NICs[i].CableConnected = currentCable
 	}
 
 	// Creating VM with specified parametrs
@@ -379,46 +371,27 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	// Setting new network adapters
-	nicNumber := d.Get("network_adapter.#").(int)
-	if nicNumber > 4 {
-		nicNumber = 4
-	}
-
 	needAppendNetwork := false
-	for i := 0; i < nicNumber; i++ {
-		requestIndex := fmt.Sprintf("network_adapter.%d.index", i)
-		currentIndex := d.Get(requestIndex).(int)
-		if currentIndex != vm.Spec.NICs[currentIndex-1].Index {
-			needAppendNetwork = true
-			vm.Spec.NICs[currentIndex-1].Index = currentIndex
-		}
-
+	for i, nic := range vm.Spec.NICs {
 		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
 		currentMode := vbg.NetworkMode(d.Get(requestMode).(string))
-		if currentMode != vm.Spec.NICs[currentIndex-1].Mode {
+		if currentMode != nic.Mode {
 			needAppendNetwork = true
-			vm.Spec.NICs[currentIndex-1].Mode = currentMode
-		}
-
-		requestName := fmt.Sprintf("network_adapter.%d.network_name", i)
-		currentName := d.Get(requestName).(string)
-		if currentName != vm.Spec.NICs[currentIndex-1].NetworkName {
-			needAppendNetwork = true
-			vm.Spec.NICs[currentIndex-1].NetworkName = currentName
+			nic.Mode = currentMode
 		}
 
 		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
-		currentType := d.Get(requestType).(string)
-		if vbg.NICType(currentType) != vm.Spec.NICs[currentIndex-1].Type {
+		currentType := vbg.NICType(d.Get(requestType).(string))
+		if currentType != nic.Type {
 			needAppendNetwork = true
-			vm.Spec.NICs[currentIndex-1].Type = vbg.NICType(currentType)
+			nic.Type = currentType
 		}
 
 		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
 		currentCable := d.Get(requestCable).(bool)
-		if currentCable != vm.Spec.NICs[currentIndex-1].CableConnected {
+		if currentCable != nic.CableConnected {
 			needAppendNetwork = true
-			vm.Spec.NICs[currentIndex-1].CableConnected = currentCable
+			nic.CableConnected = currentCable
 		}
 	}
 	if needAppendNetwork {
@@ -565,12 +538,11 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		}
 	}
 
-	nics := make([]map[string]any, 4)
-	for _, nic := range vm.Spec.NICs {
+	nics := make([]map[string]any, 0, 4)
+	for i, nic := range vm.Spec.NICs {
 		out := make(map[string]any)
-		out["index"] = nic.Index
+		out["index"] = i + 1
 		out["network_mode"] = getMode(nic)
-		out["network_name"] = nic.NetworkName
 		out["nic_type"] = getType(nic)
 		out["cable_connected"] = nic.CableConnected
 		nics = append(nics, out)
