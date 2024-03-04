@@ -1,6 +1,6 @@
 
 resource "virtualbox_server" "VM_without_image" {
-    count     = 0
+    count     = 1
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
     cpus      = 3
@@ -10,7 +10,7 @@ resource "virtualbox_server" "VM_without_image" {
 }
 
 resource "virtualbox_server" "bad_VM_example" {
-    count     = 1
+    count     = 0
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
     cpus      = 30
@@ -20,7 +20,7 @@ resource "virtualbox_server" "bad_VM_example" {
 }
 
 resource "virtualbox_server" "VM_VDI" {
-    count     = 0
+    count     = 1
     name      = format("VM_VDI-%02d", count.index + 1)
     basedir = format("VM_VDI-%02d", count.index + 1)
     cpus      = 2
@@ -37,4 +37,4 @@ resource "virtualbox_server" "VM_VDI" {
 #     cpus      = 2
 #     memory    = 500
 #     //image = "C:/Users/vovap/ubuntu-16.04.6-desktop-i386.iso"
-# }
+# }*/

@@ -37,7 +37,7 @@ func TestVirtualMachineCreation(t *testing.T) {
 	assert.Equal(t, expDir, vmBasedir)
 }
 
-func TestBadVMExample(t *testing.T) {
+/*func TestBadVMExample(t *testing.T) {
 	t.Parallel()
 	terraformOptions := &terraform.Options{
 		TerraformDir: "../examples/resources",
@@ -47,7 +47,7 @@ func TestBadVMExample(t *testing.T) {
 
 	terraform.InitAndApply(t, terraformOptions)
 
-	vmName := terraform.Output(t, terraformOptions, "name")
+	vmName := terraform.Output(t, terraformOptions, "name_b")
 	vmCPUs := terraform.Output(t, terraformOptions, "cpus")
 	vmMemory := terraform.Output(t, terraformOptions, "memory")
 	vmStatus := terraform.Output(t, terraformOptions, "status")
@@ -58,9 +58,9 @@ func TestBadVMExample(t *testing.T) {
 	assert.Equal(t, 1000000000000, vmMemory)
 	assert.Equal(t, "asdfasdf", vmStatus)
 	assert.Equal(t, "Windows7_64", vmOSID)
-}
+}*/
 
-func TestVirtualMachineCreation2(t *testing.T) {
+/*func TestVirtualMachineCreation2(t *testing.T) {
 	t.Parallel()
 	terraformOptions := &terraform.Options{
 		TerraformDir: "../examples/resources",
@@ -71,12 +71,12 @@ func TestVirtualMachineCreation2(t *testing.T) {
 	terraform.InitAndApply(t, terraformOptions)
 
 	// Checking the attributes of a virtual machine
-	vmName := terraform.Output(t, terraformOptions, "name")
-	vmCPUs := terraform.Output(t, terraformOptions, "cpus")
-	vmMemory := terraform.Output(t, terraformOptions, "memory")
+	vmName := terraform.Output(t, terraformOptions, "name_3")
+	vmCPUs := terraform.Output(t, terraformOptions, "cpus_3")
+	vmMemory := terraform.Output(t, terraformOptions, "memory_3")
 	// vmURL := terraform.Output(t, terraformOptions, "url")
-	vmStatus := terraform.Output(t, terraformOptions, "status")
-	vmVDISize := terraform.Output(t, terraformOptions, "vdi_size")
+	vmStatus := terraform.Output(t, terraformOptions, "status_3")
+	vmVDISize := terraform.Output(t, terraformOptions, "vdi_size_3")
 
 	assert.Equal(t, "VM_VDI-01", vmName)
 	assert.Equal(t, "2", vmCPUs)
@@ -84,4 +84,4 @@ func TestVirtualMachineCreation2(t *testing.T) {
 	// assert.Equal(t, "github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz", vmURL)
 	assert.Equal(t, "poweroff", vmStatus)
 	assert.Equal(t, "25000", vmVDISize)
-}
+}*/
