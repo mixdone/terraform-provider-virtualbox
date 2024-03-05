@@ -1,7 +1,7 @@
 name: "Terratest Test Runner"
 description: "A GitHub Action to run Terratest tests and post the results as an artifact"
 inputs:
-  sourceDir:
+  sourceDir: terraform-unit-testing
     required: true
     description: The directory containing the source code to test
     default: "."
