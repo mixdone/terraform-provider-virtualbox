@@ -54,6 +54,8 @@ jobs:
         run: go test -race -vet=off ./internal/provider
 
       - name: Run Terratest
-        uses: cloudposse/github-action-terratest@main
-        with:
-          sourceDir: terraform-unit-testing
+        shell: bash
+        working-directory: terraform-unit-testing
+        run: |
+          go install github.com/jstemmer/go-junit-report@latest
+          go test -v ./... | go-junit-report -set-exit-code > report.xml
