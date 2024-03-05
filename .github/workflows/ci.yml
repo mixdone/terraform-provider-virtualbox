@@ -52,3 +52,8 @@ jobs:
 
       - name: Run tests
         run: go test -race -vet=off ./...
+
+      - name: Run Terratest
+        uses: cloudposse/github-action-terratest@main
+        with:
+          sourceDir: internal/provider
