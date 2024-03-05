@@ -1,4 +1,4 @@
-package provider
+package provider_test
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ func TestVirtualMachineCreation(t *testing.T) {
 
 	terraformOptions := &terraform.Options{
 		// The path to where your Terraform configuration files are located
-		TerraformDir: "../examples/resources",
+		TerraformDir: "../../examples/resources",
 		/*Vars: map[string]interface{}{
 			"count":  0,
 			"cpus":   3,
@@ -60,10 +60,10 @@ func TestVirtualMachineCreation(t *testing.T) {
 	assert.Equal(t, "Windows7_64", vmOSID)
 }*/
 
-/*func TestVirtualMachineCreation2(t *testing.T) {
+func TestVirtualMachineCreation2(t *testing.T) {
 	t.Parallel()
 	terraformOptions := &terraform.Options{
-		TerraformDir: "../examples/resources",
+		TerraformDir: "../../examples/resources",
 	}
 
 	defer terraform.Destroy(t, terraformOptions)
@@ -84,4 +84,4 @@ func TestVirtualMachineCreation(t *testing.T) {
 	// assert.Equal(t, "github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz", vmURL)
 	assert.Equal(t, "poweroff", vmStatus)
 	assert.Equal(t, "25000", vmVDISize)
-}*/
+}
