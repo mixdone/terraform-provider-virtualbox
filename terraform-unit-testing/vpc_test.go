@@ -29,12 +29,18 @@ func TestVirtualMachineCreation(t *testing.T) {
 
 	vmName := terraform.Output(t, terraformOptions, "name")
 	vmBasedir := terraform.Output(t, terraformOptions, "basedir")
+	vmCPUs := terraform.Output(t, terraformOptions, "cpus")
+	vmMemory := terraform.Output(t, terraformOptions, "memory")
+	vmStatus := terraform.Output(t, terraformOptions, "status")
 
 	expName := "VM_without_image-01"
 	expDir := "VM_without_image-01"
 
 	assert.Equal(t, expName, vmName)
 	assert.Equal(t, expDir, vmBasedir)
+	assert.Equal(t, "3", vmCPUs)
+	assert.Equal(t, "1000", vmMemory)
+	assert.Equal(t, "poweroff", vmStatus)
 }
 
 /*func TestBadVMExample(t *testing.T) {

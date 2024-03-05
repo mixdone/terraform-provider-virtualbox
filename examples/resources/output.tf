@@ -7,6 +7,18 @@ output "basedir" {
   value = virtualbox_server.VM_without_image[0].basedir
 }
 
+output "cpus" {
+  value = virtualbox_server.VM_without_image[0].cpus
+}
+
+output "memory" {
+  value = virtualbox_server.VM_without_image[0].memory
+}
+
+output "status" {
+  value = virtualbox_server.VM_without_image[0].status
+}
+
 /*output "name_b" {
   value = virtualbox_server.bad_VM_example[0].name
 }

@@ -5,7 +5,7 @@ resource "virtualbox_server" "VM_without_image" {
     basedir = format("VM_without_image-%02d", count.index + 1)
     cpus      = 3
     memory    = 1000
-    status = "running"
+    status = "poweroff"
     os_id = "Windows7_64"
 }
 
