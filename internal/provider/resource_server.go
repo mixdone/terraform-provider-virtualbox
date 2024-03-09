@@ -372,6 +372,11 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	needAppendNetwork := false
 	nicNumber := d.Get("network_adapter.#").(int)
 
+	if len(vm.Spec.NICs) < nicNumber {
+		var NICs = make([]vbg.NIC, nicNumber-len(vm.Spec.NICs))
+		vm.Spec.NICs = append(vm.Spec.NICs, NICs...)
+	}
+
 	for i := 0; i < nicNumber; i++ {
 		vm.Spec.NICs[i].Index = i + 1
 		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
