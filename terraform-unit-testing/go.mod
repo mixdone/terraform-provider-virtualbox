@@ -1,6 +1,6 @@
 module github.com/mixdone/terraform-provider-virtualbox/terraform-unit-testing
 
-go 1.19
+go 1.21.1
 require go-simpler.org/assert v0.7.0
 
 require (
