@@ -102,8 +102,9 @@ func resourceVM() *schema.Resource {
 			},
 
 			"snapshot": {
-				Type:     schema.TypeList,
-				Optional: true,
+				Type:        schema.TypeList,
+				Description: "Adds a list of snapshots. You can add a new Snapshot, edit or delete existing ones.",
+				Optional:    true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						"name": {
