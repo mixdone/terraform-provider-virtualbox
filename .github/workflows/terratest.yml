@@ -1,31 +1,14 @@
-name: "Terratest Test Runner"
+name: Pull Request
 on:
   pull_request:
     branches: [ 'main' ]
     types: [opened, synchronize, reopened, closed, labeled, unlabeled]
 
 jobs:
-  steps:
-    - uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
-
-    - uses: actions/setup-go@v3
-      with:
-        go-version-file: terraform-unit-testing/go.mod
-        cache: true
-        cache-dependency-path: terraform-unit-testing/go.mod
-
-    - name: Run Tests
-      shell: bash
-      working-directory: terraform-unit-testing
-      run: |
-        go install github.com/jstemmer/go-junit-report@latest
-        go test -v ./... | go-junit-report -set-exit-code > report.xml
-
-    - name: Post Test Summary
-      uses: test-summary/action@v2
-      with:
-        paths: |
-          terraform-unit-testing/report.xml
-      if: always()
+  context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Terratest
+        uses: cloudposse/github-action-terratest@main
+        with:
+          sourceDir: terraform-init-testing

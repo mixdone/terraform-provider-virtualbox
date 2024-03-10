@@ -1,6 +1,6 @@
 module terraform-unit-testing
 
-go 1.21.1
+go 1.19
 
 require go-simpler.org/assert v0.7.0
 
