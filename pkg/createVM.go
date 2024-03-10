@@ -104,13 +104,13 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 
 	// Parameters of the virtual machine
 	spec := &vbg.VirtualMachineSpec{
-		Name:     vmCfg.Name,
-		OSType:   vbg.OSType{ID: vmCfg.OS_id},
-		CPU:      vbg.CPU{Count: vmCfg.CPUs},
-		Memory:   vbg.Memory{SizeMB: vmCfg.Memory},
-		Disks:    disks,
-		Group:    vmCfg.Group,
-		Snapshot: vmCfg.Snapshot,
+		Name:            vmCfg.Name,
+		OSType:          vbg.OSType{ID: vmCfg.OS_id},
+		CPU:             vbg.CPU{Count: vmCfg.CPUs},
+		Memory:          vbg.Memory{SizeMB: vmCfg.Memory},
+		Disks:           disks,
+		Group:           vmCfg.Group,
+		CurrentSnapshot: vmCfg.Snapshot,
 	}
 
 	vm := &vbg.VirtualMachine{
@@ -158,8 +158,8 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 		}
 	}
 
-	if vm.Spec.Snapshot.Name != "" {
-		err := vb.TakeSnapshot(vm, vm.Spec.Snapshot, false)
+	if vm.Spec.CurrentSnapshot.Name != "" {
+		err := vb.TakeSnapshot(vm, vm.Spec.CurrentSnapshot, false)
 		if err != nil {
 			return nil, fmt.Errorf("TakeSnapshot failed: %s", err.Error())
 		}

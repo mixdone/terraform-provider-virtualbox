@@ -116,12 +116,6 @@ func resourceVM() *schema.Resource {
 							Optional: true,
 							Default:  "",
 						},
-
-						"operation": {
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "take",
-						},
 					},
 				},
 			},
@@ -147,8 +141,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	snapshots := d.Get("snapshot.#").(int)
 	if snapshots > 0 {
 		snapshots = 1
-		vmConf.Snapshot.Name = d.Get("snapshot.0.name").(string)
-		vmConf.Snapshot.Description = d.Get("snapshot.0.description").(string)
+		req1 := fmt.Sprintf("snapshot.%d.name", snapshots-1)
+		req2 := fmt.Sprintf("snapshot.%d.description", snapshots-1)
+		vmConf.Snapshot.Name = d.Get(req1).(string)
+		vmConf.Snapshot.Description = d.Get(req2).(string)
 	} else {
 		vmConf.Snapshot = vbg.Snapshot{Name: "", Description: ""}
 	}
@@ -253,6 +249,13 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	vb := vbg.NewVBox(vbg.Config{BasePath: basePath})
 	vm, err := vb.VMInfo(d.Id())
 
+	logrus.Info(vm.Spec.CurrentSnapshot.Name)
+
+	for i := 0; i < len(vm.Spec.Snapshots); i++ {
+		logrus.Info(vm.Spec.Snapshots[i].Name)
+		logrus.Info(vm.Spec.Snapshots[i].Description)
+	}
+
 	if err != nil {
 		d.SetId("")
 		return diag.Errorf("VMInfo failed: %s", err.Error())
@@ -268,11 +271,15 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
 	}
 
-	arr := make([]map[string]interface{}, 1)
-	arr = append(arr, map[string]interface{}{
-		"name":        vm.Spec.Snapshot.Name,
-		"description": vm.Spec.Snapshot.Description,
-	})
+	arr := make([]map[string]interface{}, 0, 3)
+
+	for i := 0; i < len(vm.Spec.Snapshots); i++ {
+		arr = append(arr, map[string]interface{}{
+			"name":        vm.Spec.Snapshots[i].Name,
+			"description": vm.Spec.Snapshots[i].Description,
+		})
+	}
+
 	if err := d.Set("snapshot", arr); err != nil {
 		return diag.Errorf("Didn't manage to set snapshot: %s", err.Error())
 	}
@@ -397,33 +404,45 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
-	operation := d.Get("snapshot.0.operation").(string)
-
-	var snapshot vbg.Snapshot
 	snapshots := d.Get("snapshot.#").(int)
-	if snapshots > 0 {
-		snapshots = 1
-		snapshot.Name = d.Get("snapshot.0.name").(string)
-		snapshot.Description = d.Get("snapshot.0.description").(string)
-		if snapshot.Name == vm.Spec.Snapshot.Name && snapshot.Description != vm.Spec.Snapshot.Description {
-			if err := vb.EditSnapshot(vm, snapshot); err != nil {
-				return diag.Errorf("edit snapshot failed: %s", err.Error())
-			}
-		} else if snapshot.Name != "" {
-			if err := snapshotOperationsHandler(vb, vm, snapshot, operation, status); err != nil {
-				return diag.Errorf("snapshot failed: %s", err.Error())
-			}
+
+	diff := len(vm.Spec.Snapshots) - snapshots
+
+	if diff < 0 {
+		emptySnapshts := make([]vbg.Snapshot, -diff)
+		vm.Spec.Snapshots = append(vm.Spec.Snapshots, emptySnapshts...)
+	}
+
+	for i := 0; i < snapshots; i++ {
+		var snapshot vbg.Snapshot
+		req1 := fmt.Sprintf("snapshot.%d.name", i)
+		req2 := fmt.Sprintf("snapshot.%d.description", i)
+
+		snapshot.Name = d.Get(req1).(string)
+		snapshot.Description = d.Get(req2).(string)
+
+		if vm.Spec.Snapshots[i].Name == "" {
+			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], snapshot, "take", status)
+		} else if snapshot.Name != vm.Spec.Snapshots[i].Name ||
+			snapshot.Description != vm.Spec.Snapshots[i].Description {
+			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], snapshot, "update", status)
+		}
+	}
+
+	if diff > 0 {
+		for i := snapshots; i < snapshots+diff; i++ {
+			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], vm.Spec.Snapshots[i], "delete", status)
 		}
 	}
 
 	return resourceVirtualBoxRead(ctx, d, m)
 }
 
-func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, snapshot vbg.Snapshot, operation string, status string) error {
+func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, prevSnapshot vbg.Snapshot, snapshot vbg.Snapshot, operation string, status string) error {
 	var err error
 	switch operation {
 	case "take":
-		if snapshot.Name != vm.Spec.Snapshot.Name {
+		if snapshot.Name != vm.Spec.CurrentSnapshot.Name {
 			if status == "running" {
 				err = vb.TakeSnapshot(vm, snapshot, true)
 			} else {
@@ -435,7 +454,7 @@ func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, snapshot vb
 		return vb.DeleteSnapshot(vm, snapshot)
 	case "update":
 		if snapshot.Name != "" {
-			err = vb.EditSnapshot(vm, snapshot)
+			err = vb.EditSnapshot(vm, prevSnapshot, snapshot)
 		}
 		return err
 	case "restore":

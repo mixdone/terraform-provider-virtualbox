@@ -10,9 +10,8 @@ resource "virtualbox_server" "VM_without_image" {
     group = "/man"
 
     snapshot {
-        name = "hello3"
-        description = "ohohohoh"
-        operation = "take"
+      name = "hello"
+      description = "hohohhoho"
     }
 }
 
