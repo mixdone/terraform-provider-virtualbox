@@ -1,4 +1,4 @@
-module terraform-unit-testing
+module github.com/mixdone/terraform-provider-virtualbox/terraform-unit-testing
 
 go 1.21.1
 
