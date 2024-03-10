@@ -1,6 +1,10 @@
 name: "Terratest Test Runner"
+on:
+  pull_request:
+    branches: [ 'main' ]
+    types: [opened, synchronize, reopened, closed, labeled, unlabeled]
 
-runs:
+jobs:
   using: composite
   steps:
     - uses: actions/checkout@v3
