@@ -18,7 +18,7 @@ resource "yandex_compute_instance" "VM1" {
 	name = format("VM_without_image-%02d", count.index + 1)
 	boot_disk {
 		initialize_params {
-			image_id = "fd889ece9aeiiolebods"
+			image_id = "fd8a6ftpi68apdh7jvi5"
 		}
 	}
 	network_interface {
@@ -36,7 +36,7 @@ resource "yandex_compute_instance" "VM2" {
 	name = "vm2"
 	boot_disk {
 		initialize_params {
-			image_id = "fd86fg1oan7tm5mtjfcj"
+			image_id = "fd82lcrg4qm5n89ho3u5"
 		}
 	}
 	network_interface {
@@ -53,7 +53,7 @@ resource "yandex_compute_instance" "VM3" {
 	name = "vm3"
 	boot_disk {
 		initialize_params {
-			image_id = "fd81meavjdddbluejde1"
+			image_id = "fd88bd5fmmqmokeq1pcl"
 		}
 	}
 	network_interface {
