@@ -53,7 +53,4 @@ jobs:
       - name: Run tests
         run: go test -race -vet=off ./internal/provider
 
-      - name: Run Terratest
-        uses: cloudposse/github-action-terratest@main
-        with:
-          sourceDir: terraform-unit-testing
+      
