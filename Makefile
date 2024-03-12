@@ -15,10 +15,12 @@ linux_amd64_build: set_log
 set_log:
 	export TF_LOG=TRACE
 	export TF_LOG_PATH="./config/log.txt"
+	
 rm:
 	rm -rf ./examples/resources/.terraform*
 	rm -rf ./examples/resources/terraform*
+
 clean:
-	rm -rf ./config/.terraform*
-	rm -rf ./config/terraform*
-	rm -rf ./config/log.txt
+	rm -rf ./examples/resources/.terraform*
+	rm -rf ./examples/resources/terraform*
+	rm -rf ./examples/resources/log.txt

@@ -291,7 +291,18 @@ func Test_ControlVM(t *testing.T) {
 
 	defer os.RemoveAll(installedData)
 
-	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype, vdi, os_id)
+	vmCnf := pkg.VMConfig{
+		Name:       name,
+		CPUs:       cpus,
+		Memory:     memory,
+		Image_path: url,
+		Dirname:    machinesDir,
+		Vdi_size:   vdi,
+		OS_id:      os_id,
+		Ltype:      ltype,
+	}
+
+	vm, err := pkg.CreateVM(vmCnf)
 	if err != nil {
 		logrus.Fatalf("Creation VM failed: %s", err.Error())
 	}
@@ -355,7 +366,18 @@ func Test_ModifyVM(t *testing.T) {
 
 	defer os.RemoveAll(installedData)
 
-	vm, err := pkg.CreateVM(name, cpus, memory, url, machinesDir, ltype, vdi, os_id)
+	vmCnf := pkg.VMConfig{
+		Name:       name,
+		CPUs:       cpus,
+		Memory:     memory,
+		Image_path: url,
+		Dirname:    machinesDir,
+		Vdi_size:   vdi,
+		OS_id:      os_id,
+		Ltype:      ltype,
+	}
+
+	vm, err := pkg.CreateVM(vmCnf)
 	if err != nil {
 		logrus.Fatalf("Creation VM failed: %s", err.Error())
 	}

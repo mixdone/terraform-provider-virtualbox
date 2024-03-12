@@ -53,11 +53,11 @@ func resourceVM() *schema.Resource {
 				Default:     15000,
 			},
 
-			"vmgroup": {
+			"group": {
 				Description: "Group of Virtual Machines.",
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "hello",
+				Default:     "",
 			},
 
 			"cpus": {
@@ -161,7 +161,27 @@ func resourceVM() *schema.Resource {
 				Description: "Specifies the guest OS to run in the VM.",
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "Ubuntu_64",
+				Default:     "Linux_64",
+			},
+
+			"snapshot": {
+				Type:        schema.TypeList,
+				Description: "Adds a list of snapshots. You can add a new Snapshot, edit or delete existing ones.",
+				Optional:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
+
+						"description": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -173,11 +193,25 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Errorf(err.Error())
 	}
 
-	name := d.Get("name").(string)
-	cpus := d.Get("cpus").(int)
-	memory := d.Get("memory").(int)
-	vdi_size := int64(d.Get("vdi_size").(int))
-	os_id := d.Get("os_id").(string)
+	var vmConf pkg.VMConfig
+
+	vmConf.Name = d.Get("name").(string)
+	vmConf.CPUs = d.Get("cpus").(int)
+	vmConf.Memory = d.Get("memory").(int)
+	vmConf.Vdi_size = int64(d.Get("vdi_size").(int))
+	vmConf.OS_id = d.Get("os_id").(string)
+	vmConf.Group = d.Get("group").(string)
+
+	snapshots := d.Get("snapshot.#").(int)
+	if snapshots > 0 {
+		snapshots = 1
+		req1 := fmt.Sprintf("snapshot.%d.name", snapshots-1)
+		req2 := fmt.Sprintf("snapshot.%d.description", snapshots-1)
+		vmConf.Snapshot.Name = d.Get(req1).(string)
+		vmConf.Snapshot.Description = d.Get(req2).(string)
+	} else {
+		vmConf.Snapshot = vbg.Snapshot{Name: "", Description: ""}
+	}
 
 	// Making new folders for VirtualMachine data
 	homedir, err := os.UserHomeDir()
@@ -187,6 +221,8 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	machinesDir := filepath.Join(homedir, d.Get("basedir").(string))
 	installedData := filepath.Join(machinesDir, "InstalledData")
+
+	vmConf.Dirname = machinesDir
 
 	if err := os.MkdirAll(machinesDir, 0740); err != nil {
 		return diag.Errorf("Creation VirtualMachines foldier failed: %s", err.Error())
@@ -216,7 +252,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 					return diag.Errorf("File unpaking failed: %s", err.Error())
 				}
 				basePath := filepath.Base(imagePath)
-				basePath = basePath[:len(basePath)-len(filepath.Ext(basePath))] + name + filepath.Ext(basePath)
+				basePath = basePath[:len(basePath)-len(filepath.Ext(basePath))] + vmConf.Name + filepath.Ext(basePath)
 				image = filepath.Join(imagePath[:len(imagePath)-len(filepath.Base(imagePath))], basePath)
 				os.Rename(imagePath, image)
 			} else {
@@ -275,8 +311,11 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	vmConf.Ltype = ltype
+	vmConf.Image_path = image
+
 	// Creating VM with specified parametrs
-	vm, err := pkg.CreateVM(name, cpus, memory, image, machinesDir, ltype, vdi_size, os_id, NICs, rule)
+	vm, err := pkg.CreateVM(vmConf)
 	if err != nil {
 		return diag.Errorf("Creation VM failed: %s", err.Error())
 	}
@@ -309,9 +348,21 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 
 func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Getting Machine by id
-	homedir, _ := os.UserHomeDir()
-	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return diag.Errorf("userhomedir failed: %s", err.Error())
+	}
+
+	basePath := filepath.Join(homedir, d.Get("basedir").(string))
+	vb := vbg.NewVBox(vbg.Config{BasePath: basePath})
 	vm, err := vb.VMInfo(d.Id())
+
+	logrus.Info(vm.Spec.CurrentSnapshot.Name)
+
+	for i := 0; i < len(vm.Spec.Snapshots); i++ {
+		logrus.Info(vm.Spec.Snapshots[i].Name)
+		logrus.Info(vm.Spec.Snapshots[i].Description)
+	}
 
 	if err != nil {
 		d.SetId("")
@@ -330,6 +381,19 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	// Set name of Machine for Terraform
 	if err := d.Set("name", vm.Spec.Name); err != nil {
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
+	}
+
+	arr := make([]map[string]interface{}, 0, 3)
+
+	for i := 0; i < len(vm.Spec.Snapshots); i++ {
+		arr = append(arr, map[string]interface{}{
+			"name":        vm.Spec.Snapshots[i].Name,
+			"description": vm.Spec.Snapshots[i].Description,
+		})
+	}
+
+	if err := d.Set("snapshot", arr); err != nil {
+		return diag.Errorf("Didn't manage to set snapshot: %s", err.Error())
 	}
 
 	// Set CPUs amount for Terraform
@@ -455,6 +519,12 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		parameters = append(parameters, "network_adapter")
 	}
 
+	group := d.Get("group").(string)
+	if vm.Spec.Group != group {
+		parameters = append(parameters, "group")
+		vm.Spec.Group = group
+	}
+
 	// Modify VM
 	if len(parameters) != 0 {
 		err = vb.ModifyVM(vm, parameters)
@@ -482,7 +552,67 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	snapshots := d.Get("snapshot.#").(int)
+
+	diff := len(vm.Spec.Snapshots) - snapshots
+
+	if diff < 0 {
+		emptySnapshts := make([]vbg.Snapshot, -diff)
+		vm.Spec.Snapshots = append(vm.Spec.Snapshots, emptySnapshts...)
+	}
+
+	for i := 0; i < snapshots; i++ {
+		var snapshot vbg.Snapshot
+		req1 := fmt.Sprintf("snapshot.%d.name", i)
+		req2 := fmt.Sprintf("snapshot.%d.description", i)
+
+		snapshot.Name = d.Get(req1).(string)
+		snapshot.Description = d.Get(req2).(string)
+
+		if vm.Spec.Snapshots[i].Name == "" {
+			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], snapshot, "take", status)
+		} else if snapshot.Name != vm.Spec.Snapshots[i].Name ||
+			snapshot.Description != vm.Spec.Snapshots[i].Description {
+			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], snapshot, "update", status)
+		}
+	}
+
+	if diff > 0 {
+		for i := snapshots; i < snapshots+diff; i++ {
+			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], vm.Spec.Snapshots[i], "delete", status)
+		}
+	}
+
 	return resourceVirtualBoxRead(ctx, d, m)
+}
+
+func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, prevSnapshot vbg.Snapshot, snapshot vbg.Snapshot, operation string, status string) error {
+	var err error
+	switch operation {
+	case "take":
+		if snapshot.Name != vm.Spec.CurrentSnapshot.Name {
+			if status == "running" {
+				err = vb.TakeSnapshot(vm, snapshot, true)
+			} else {
+				err = vb.TakeSnapshot(vm, snapshot, false)
+			}
+		}
+		return err
+	case "delete":
+		return vb.DeleteSnapshot(vm, snapshot)
+	case "update":
+		if snapshot.Name != "" {
+			err = vb.EditSnapshot(vm, prevSnapshot, snapshot)
+		}
+		return err
+	case "restore":
+		if snapshot.Name != "" {
+			err = vb.RestoreSnapshot(vm, snapshot)
+		}
+		return err
+	default:
+		return fmt.Errorf("unknown snapshot operation\nUsage: operation=[take|delete|update|restore]")
+	}
 }
 
 func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
@@ -518,7 +648,7 @@ func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m int
 
 	// Unresitering VM
 	if err = vb.UnRegisterVM(vm); err != nil {
-		return diag.Errorf("VM Unregiste failed: %s", err.Error())
+		return diag.Errorf("VM Unregister failed: %s", err.Error())
 	}
 
 	// VM deletion

@@ -13,12 +13,28 @@ resource "virtualbox_server" "bad_VM_example" {
     count     = 0
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
-    cpus      = 30
-    memory    = 1000000000000
-    status = "asdfasdf"
+    cpus      = 3
+    memory    = 2500
+    status = "poweroff"
     os_id = "Windows7_64"
+    group = "/man"
+
+    snapshot {
+      name = "hello"
+      description = "hohohhoho"
+    }
 }
 
+
+# resource "virtualbox_server" "bad_VM_example" {
+#     count     = 1
+#     name      = format("VM_without_image-%02d", count.index + 1)
+#     basedir = format("VM_without_image-%02d", count.index + 1)
+#     cpus      = 30
+#     memory    = 1000000000000
+#     status = "asdfasdf"
+#     os_id = "Windows7_64"
+# }
 
 resource "virtualbox_server" "VM_VDI" {
     count     = 0
