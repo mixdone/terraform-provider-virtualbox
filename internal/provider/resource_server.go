@@ -87,6 +87,7 @@ func resourceVM() *schema.Resource {
 				Optional:    true,
 				ForceNew:    true,
 			},
+
 			"network_adapter": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -121,26 +122,31 @@ func resourceVM() *schema.Resource {
 										Type:     schema.TypeString,
 										Required: true,
 									},
+
 									"protocol": {
 										Description: "tcp|udp",
 										Type:        schema.TypeString,
 										Optional:    true,
 										Default:     "tcp",
 									},
+
 									"hostip": {
 										Type:     schema.TypeString,
 										Optional: true,
 										Default:  "",
 									},
+
 									"hostport": {
 										Type:     schema.TypeInt,
 										Required: true,
 									},
+
 									"guestip": {
 										Type:     schema.TypeString,
 										Optional: true,
 										Default:  "",
 									},
+
 									"guestport": {
 										Type:     schema.TypeInt,
 										Required: true,
@@ -151,6 +157,7 @@ func resourceVM() *schema.Resource {
 					},
 				},
 			},
+
 			"user_data": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -267,7 +274,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
-	var NICs [4]vbg.NIC
+	var NICs [20]vbg.NIC
 
 	for i, nic := range NICs {
 		nic.Index = i
@@ -276,7 +283,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		nic.Type = "Am79C970A"
 		nic.CableConnected = false
 	}
-	rule := make([]vbg.PortForwarding, 10)
+	//rule := make([]vbg.PortForwarding, 10)
 	nicNumber := d.Get("network_adapter.#").(int)
 
 	for i := 0; i < nicNumber; i++ {
@@ -295,24 +302,25 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		NICs[i].Type = vbg.NICType(currentType)
 		NICs[i].CableConnected = currentCable
 
-		portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
+		//portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
 
-		for j := 0; j < portForwardingNumber; j++ {
-			currentPF := vbg.PortForwarding{
-				Index:     i,
-				Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
-				Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
-				HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
-				HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
-				GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
-				GuestPort: d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)).(int),
-			}
-			rule = append(rule, currentPF)
-		}
+		// for j := 0; j < portForwardingNumber; j++ {
+		// 	currentPF := vbg.PortForwarding{
+		// 		Index:     i,
+		// 		Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
+		// 		Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
+		// 		HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
+		// 		HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
+		// 		GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
+		// 		GuestPort: d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)).(int),
+		// 	}
+		// 	rule = append(rule, currentPF)
+		// }
 	}
 
 	vmConf.Ltype = ltype
 	vmConf.Image_path = image
+	vmConf.NICs = NICs[:]
 
 	// Creating VM with specified parametrs
 	vm, err := pkg.CreateVM(vmConf)

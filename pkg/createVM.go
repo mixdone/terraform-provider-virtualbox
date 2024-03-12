@@ -28,6 +28,7 @@ type VMConfig struct {
 	OS_id      string
 	Group      string
 	Snapshot   vbg.Snapshot
+	NICs       []vbg.NIC
 }
 
 // create VM with chosen loading type
@@ -112,6 +113,7 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 		Disks:           disks,
 		Group:           vmCfg.Group,
 		CurrentSnapshot: vmCfg.Snapshot,
+		NICs:            vmCfg.NICs,
 	}
 
 	vm := &vbg.VirtualMachine{
