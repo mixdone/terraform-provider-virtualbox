@@ -1,6 +1,16 @@
 
 resource "virtualbox_server" "VM_without_image" {
-    count     = 1
+    count     = 0
+    name      = format("VM_without_image-%02d", count.index + 1)
+    basedir = format("VM_without_image-%02d", count.index + 1)
+    cpus      = 3
+    memory    = 1000
+    status = "running"
+    os_id = "Windows7_64"
+}
+
+resource "virtualbox_server" "bad_VM_example" {
+    count     = 0
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
     cpus      = 3
@@ -14,6 +24,7 @@ resource "virtualbox_server" "VM_without_image" {
       description = "hohohhoho"
     }
 }
+
 
 # resource "virtualbox_server" "bad_VM_example" {
 #     count     = 1
@@ -34,6 +45,34 @@ resource "virtualbox_server" "VM_VDI" {
     url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
     status = "poweroff"
     vdi_size = 25000
+}
+
+
+
+resource "virtualbox_server" "VM_network" {
+    count     = 0
+    name      = format("VM_network-%02d", count.index + 1)
+    basedir = format("VM_network-%02d", count.index + 1)
+    cpus      = 3
+    memory    = 500
+
+    network_adapter {
+        network_mode = "nat"
+    }
+    network_adapter {
+        network_mode = "nat"
+        nic_type = "82540EM"
+        cable_connected = true
+    }
+    network_adapter {
+        network_mode = "hostonly"
+    }
+    network_adapter {
+        network_mode = "bridged"
+        nic_type = "virtio"
+    }
+
+    status = "poweroff"
 }
 
 # resource "virtualbox_server" "VM_ISO" {

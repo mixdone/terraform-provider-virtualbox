@@ -88,6 +88,76 @@ func resourceVM() *schema.Resource {
 				ForceNew:    true,
 			},
 
+			"network_adapter": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"index": {
+							Type:     schema.TypeInt,
+							Computed: true,
+						},
+						"network_mode": {
+							Description: "nat, hostonly etc",
+							Type:        schema.TypeString,
+							Optional:    true,
+							Default:     "none",
+						},
+						"nic_type": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "Am79C970A",
+						},
+						"cable_connected": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+						"port_forwarding": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"name": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+
+									"protocol": {
+										Description: "tcp|udp",
+										Type:        schema.TypeString,
+										Optional:    true,
+										Default:     "tcp",
+									},
+
+									"hostip": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Default:  "",
+									},
+
+									"hostport": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+
+									"guestip": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Default:  "",
+									},
+
+									"guestport": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+
 			"user_data": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -204,8 +274,53 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	var NICs [20]vbg.NIC
+
+	for i, nic := range NICs {
+		nic.Index = i
+		nic.NetworkName = ""
+		nic.Mode = "none"
+		nic.Type = "Am79C970A"
+		nic.CableConnected = false
+	}
+	//rule := make([]vbg.PortForwarding, 10)
+	nicNumber := d.Get("network_adapter.#").(int)
+
+	for i := 0; i < nicNumber; i++ {
+
+		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
+		currentMode := d.Get(requestMode).(string)
+
+		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
+		currentType := d.Get(requestType).(string)
+
+		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
+		currentCable := d.Get(requestCable).(bool)
+
+		NICs[i].Index = i + 1
+		NICs[i].Mode = vbg.NetworkMode(currentMode)
+		NICs[i].Type = vbg.NICType(currentType)
+		NICs[i].CableConnected = currentCable
+
+		//portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
+
+		// for j := 0; j < portForwardingNumber; j++ {
+		// 	currentPF := vbg.PortForwarding{
+		// 		Index:     i,
+		// 		Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
+		// 		Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
+		// 		HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
+		// 		HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
+		// 		GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
+		// 		GuestPort: d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)).(int),
+		// 	}
+		// 	rule = append(rule, currentPF)
+		// }
+	}
+
 	vmConf.Ltype = ltype
 	vmConf.Image_path = image
+	vmConf.NICs = NICs[:]
 
 	// Creating VM with specified parametrs
 	vm, err := pkg.CreateVM(vmConf)
@@ -264,6 +379,10 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 
 	// Set state of Machine for Terraform
 	if err := setState(d, vm); err != nil {
+		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
+	}
+
+	if err := setNetwork(d, vm); err != nil {
 		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
 	}
 
@@ -370,6 +489,42 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	if actualOs_id != newOs_id {
 		parameters = append(parameters, "ostype")
 		vm.Spec.OSType.ID = newOs_id
+	}
+
+	// Setting new network adapters
+	needAppendNetwork := false
+	nicNumber := d.Get("network_adapter.#").(int)
+
+	if len(vm.Spec.NICs) < nicNumber {
+		var NICs = make([]vbg.NIC, nicNumber-len(vm.Spec.NICs))
+		vm.Spec.NICs = append(vm.Spec.NICs, NICs...)
+	}
+
+	for i := 0; i < nicNumber; i++ {
+		vm.Spec.NICs[i].Index = i + 1
+		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
+		currentMode := vbg.NetworkMode(d.Get(requestMode).(string))
+		if currentMode != vm.Spec.NICs[i].Mode {
+			needAppendNetwork = true
+			vm.Spec.NICs[i].Mode = currentMode
+		}
+
+		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
+		currentType := vbg.NICType(d.Get(requestType).(string))
+		if currentType != vm.Spec.NICs[i].Type {
+			needAppendNetwork = true
+			vm.Spec.NICs[i].Type = currentType
+		}
+
+		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
+		currentCable := d.Get(requestCable).(bool)
+		if currentCable != vm.Spec.NICs[i].CableConnected {
+			needAppendNetwork = true
+			vm.Spec.NICs[i].CableConnected = currentCable
+		}
+	}
+	if needAppendNetwork {
+		parameters = append(parameters, "network_adapter")
 	}
 
 	group := d.Get("group").(string)
@@ -533,6 +688,66 @@ func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		err = d.Set("status", "aborted")
 	}
 	return err
+}
+
+func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
+	getType := func(nic vbg.NIC) string {
+		switch nic.Type {
+		case vbg.NIC_Am79C970A:
+			return "Am79C970A"
+		case vbg.NIC_Am79C973:
+			return "Am79C973"
+		case vbg.NIC_82540EM:
+			return "82540EM"
+		case vbg.NIC_82543GC:
+			return "82543GC"
+		case vbg.NIC_82545EM:
+			return "82545EM"
+		case vbg.NIC_virtio:
+			return "virtio"
+		default:
+			return ""
+		}
+	}
+
+	getMode := func(nic vbg.NIC) string {
+		switch nic.Mode {
+		case vbg.NWMode_none:
+			return "none"
+		case vbg.NWMode_null:
+			return "null"
+		case vbg.NWMode_nat:
+			return "nat"
+		case vbg.NWMode_natnetwork:
+			return "natnetwork"
+		case vbg.NWMode_bridged:
+			return "bridged"
+		case vbg.NWMode_intnet:
+			return "intnet"
+		case vbg.NWMode_hostonly:
+			return "hostonly"
+		case vbg.NWMode_generic:
+			return "generic"
+		default:
+			return ""
+		}
+	}
+
+	nics := make([]map[string]any, 0, 4)
+	for i, nic := range vm.Spec.NICs {
+		out := make(map[string]any)
+		out["index"] = i + 1
+		out["network_mode"] = getMode(nic)
+		out["nic_type"] = getType(nic)
+		out["cable_connected"] = nic.CableConnected
+		nics = append(nics, out)
+	}
+
+	if err := d.Set("network_adapter", nics); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func validateVmParams(d *schema.ResourceData) error {
