@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set up Docker
-        uses: actions/setup-docker@v2
+        uses: docker-practice/actions-setup-docker@v1
 
       - name: Build Docker container
         run: docker build -t terraform-testing .
