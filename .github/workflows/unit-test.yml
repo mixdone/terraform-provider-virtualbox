@@ -5,25 +5,21 @@ on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
-
+    
     services:
-      virtualbox:
-        image: virtualbox/ubuntu
-        options: --privileged=true
-        ports:
-          - 3389:3389
-        env:
-          VIRTUALBOX: 6.1
+      docker:
+        image: docker:20.10.8
+        options: --privileged
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
-      - name: Set up Docker
-        uses: docker-practice/actions-setup-docker@v1
-
-      - name: Build Docker container
-        run: docker build -t terraform-testing .
-
-      - name: Run tests
-        run: docker run terraform-testing go test -v ./terraform-unit-testing
+    - name: Check out code
+      uses: actions/checkout@v2
+      
+    - name: Set up Docker Buildx
+      run: docker buildx create --use
+      
+    - name: Build Docker image
+      run: docker build -t my-terraform-tests .
+      
+    - name: Run Terratest
+      run: docker run my-terraform-tests go test -v ./terraform-unit-testing/
