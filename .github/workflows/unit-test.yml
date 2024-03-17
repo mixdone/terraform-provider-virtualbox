@@ -17,6 +17,7 @@ jobs:
       
     - name: Build Docker image
       run: docker build -t my-terraform-tests .
+      working-directory: .
       
     - name: Run Terratest
       run: docker run my-terraform-tests go test -v ./terraform-unit-testing/
