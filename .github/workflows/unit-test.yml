@@ -1,0 +1,29 @@
+name: Terraform Provider Testing
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      virtualbox:
+        image: virtualbox/ubuntu
+        options: --privileged=true
+        ports:
+          - 3389:3389
+        env:
+          VIRTUALBOX: 6.1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker
+        uses: actions/setup-docker@v2
+
+      - name: Build Docker container
+        run: docker build -t terraform-testing .
+
+      - name: Run tests
+        run: docker run terraform-testing go test -v ./terraform-unit-testing
