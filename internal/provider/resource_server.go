@@ -196,7 +196,7 @@ func resourceVM() *schema.Resource {
 
 func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Geting data from config
-	if err := validateVmParams(d); err != nil {
+	if err := validateVmParams(d, true); err != nil {
 		return diag.Errorf(err.Error())
 	}
 
@@ -365,13 +365,6 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	vb := vbg.NewVBox(vbg.Config{BasePath: basePath})
 	vm, err := vb.VMInfo(d.Id())
 
-	logrus.Info(vm.Spec.CurrentSnapshot.Name)
-
-	for i := 0; i < len(vm.Spec.Snapshots); i++ {
-		logrus.Info(vm.Spec.Snapshots[i].Name)
-		logrus.Info(vm.Spec.Snapshots[i].Description)
-	}
-
 	if err != nil {
 		d.SetId("")
 		return diag.Errorf("VMInfo failed: %s", err.Error())
@@ -382,26 +375,9 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
 	}
 
-	if err := setNetwork(d, vm); err != nil {
-		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
-	}
-
 	// Set name of Machine for Terraform
 	if err := d.Set("name", vm.Spec.Name); err != nil {
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
-	}
-
-	arr := make([]map[string]interface{}, 0, 3)
-
-	for i := 0; i < len(vm.Spec.Snapshots); i++ {
-		arr = append(arr, map[string]interface{}{
-			"name":        vm.Spec.Snapshots[i].Name,
-			"description": vm.Spec.Snapshots[i].Description,
-		})
-	}
-
-	if err := d.Set("snapshot", arr); err != nil {
-		return diag.Errorf("Didn't manage to set snapshot: %s", err.Error())
 	}
 
 	// Set CPUs amount for Terraform
@@ -414,6 +390,16 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("Didn't manage to set memory: %s", err.Error())
 	}
 
+	// Set network for Terraform
+	if err := setNetwork(d, vm); err != nil {
+		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
+	}
+
+	// Set snapshots for Terraform
+	if err := setSnapshots(d, vm); err != nil {
+		return diag.Errorf("Didn't manage to set snapshots: %s", err.Error())
+	}
+
 	// Set basedir VM for Terraform
 	if err := d.Set("basedir", d.Get("basedir").(string)); err != nil {
 		return diag.Errorf("Didn't manage to set basedir: %s", err.Error())
@@ -422,23 +408,8 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	return nil
 }
 
-func poweroffVM(ctx context.Context, d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) error {
-	switch vm.Spec.State {
-	case vbg.Poweroff, vbg.Aborted, vbg.Saved:
-		return nil
-	}
-
-	if _, err := vb.ControlVM(vm, "poweroff"); err != nil {
-		logrus.Errorf("Unable to poweroff VM: %s", err.Error())
-		return err
-	}
-
-	vm.Spec.State = vbg.Poweroff
-	return nil
-}
-
 func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	if err := validateVmParams(d); err != nil {
+	if err := validateVmParams(d, false); err != nil {
 		return diag.Errorf(err.Error())
 	}
 
@@ -455,7 +426,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	// Powerof VM
-	if err = poweroffVM(ctx, d, vm, vb); err != nil {
+	if err = poweroffVM(vm, vb); err != nil {
 		return diag.Errorf("Setting state failed: %s", err.Error())
 	}
 
@@ -594,6 +565,71 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	return resourceVirtualBoxRead(ctx, d, m)
 }
 
+func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
+	vb := vbg.NewVBox(vbg.Config{})
+	_, err := vb.VMInfo(d.Id())
+	switch err {
+	case nil:
+		return true, nil
+	case vbg.ErrMachineNotExist:
+		return false, nil
+	default:
+		return false, fmt.Errorf("VMInfo failed: %s", err)
+	}
+}
+
+func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	// Getting VM by id
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return diag.Errorf("userhomedir failed: %s", err.Error())
+	}
+
+	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
+	vm, err := vb.VMInfo(d.Id())
+	if err != nil {
+		return diag.Errorf("VMInfo failed: %s", err.Error())
+	}
+
+	// Powerof VM
+	if err = poweroffVM(vm, vb); err != nil {
+		return diag.Errorf("Setting state failed: %s", err.Error())
+	}
+
+	// Unresitering VM
+	if err = vb.UnRegisterVM(vm); err != nil {
+		return diag.Errorf("VM Unregister failed: %s", err.Error())
+	}
+
+	// VM deletion
+	if err = vb.DeleteVM(vm); err != nil {
+		return diag.Errorf("VM deletion failed: %s", err.Error())
+	}
+
+	// Delete machine folder
+	machineDir := filepath.Join(homedir, d.Get("basedir").(string))
+	if err := os.RemoveAll(machineDir); err != nil {
+		return diag.Errorf("Can't clear the data: %s", err.Error())
+	}
+
+	return nil
+}
+
+func poweroffVM(vm *vbg.VirtualMachine, vb *vbg.VBox) error {
+	switch vm.Spec.State {
+	case vbg.Poweroff, vbg.Aborted, vbg.Saved:
+		return nil
+	}
+
+	if _, err := vb.ControlVM(vm, "poweroff"); err != nil {
+		logrus.Errorf("Unable to poweroff VM: %s", err.Error())
+		return err
+	}
+
+	vm.Spec.State = vbg.Poweroff
+	return nil
+}
+
 func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, prevSnapshot vbg.Snapshot, snapshot vbg.Snapshot, operation string, status string) error {
 	var err error
 	switch operation {
@@ -623,56 +659,6 @@ func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, prevSnapsho
 	}
 }
 
-func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
-	vb := vbg.NewVBox(vbg.Config{})
-	_, err := vb.VMInfo(d.Id())
-	switch err {
-	case nil:
-		return true, nil
-	case vbg.ErrMachineNotExist:
-		return false, nil
-	default:
-		return false, fmt.Errorf("VMInfo failed: %s", err)
-	}
-}
-
-func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	// Getting VM by id
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		return diag.Errorf("userhomedir failed: %s", err.Error())
-	}
-
-	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
-	vm, err := vb.VMInfo(d.Id())
-	if err != nil {
-		return diag.Errorf("VMInfo failed: %s", err.Error())
-	}
-
-	// Powerof VM
-	if err = poweroffVM(ctx, d, vm, vb); err != nil {
-		return diag.Errorf("Setting state failed: %s", err.Error())
-	}
-
-	// Unresitering VM
-	if err = vb.UnRegisterVM(vm); err != nil {
-		return diag.Errorf("VM Unregister failed: %s", err.Error())
-	}
-
-	// VM deletion
-	if err = vb.DeleteVM(vm); err != nil {
-		return diag.Errorf("VM deletion failed: %s", err.Error())
-	}
-
-	// Delete machine folder
-	machineDir := filepath.Join(homedir, d.Get("basedir").(string))
-	if err := os.RemoveAll(machineDir); err != nil {
-		return diag.Errorf("Can't clear the data: %s", err.Error())
-	}
-
-	return nil
-}
-
 func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 	var err error
 	switch vm.Spec.State {
@@ -688,6 +674,22 @@ func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		err = d.Set("status", "aborted")
 	}
 	return err
+}
+
+func setSnapshots(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
+	arr := make([]map[string]interface{}, 0, 3)
+
+	for i := 0; i < len(vm.Spec.Snapshots); i++ {
+		arr = append(arr, map[string]interface{}{
+			"name":        vm.Spec.Snapshots[i].Name,
+			"description": vm.Spec.Snapshots[i].Description,
+		})
+	}
+
+	if err := d.Set("snapshot", arr); err != nil {
+		return fmt.Errorf("%s", err.Error())
+	}
+	return nil
 }
 
 func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
@@ -750,7 +752,7 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 	return nil
 }
 
-func validateVmParams(d *schema.ResourceData) error {
+func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 	amountOfProblems := 0
 	var error_output []string
 
@@ -763,6 +765,12 @@ func validateVmParams(d *schema.ResourceData) error {
 	memory := d.Get("memory").(int)
 	if memory <= 0 || memory > int(mem.TotalMemory()) {
 		error_output = append(error_output, fmt.Sprintf("Set the amount of memory according to the following limits: 1 - %v", mem.TotalMemory()))
+		amountOfProblems++
+	}
+
+	snapshots := d.Get("snapshot.#").(int)
+	if isCreate && snapshots > 1 {
+		error_output = append(error_output, fmt.Sprintf("Too many snapshots for a new VM - %s", d.Get("name").(string)))
 		amountOfProblems++
 	}
 
@@ -781,6 +789,75 @@ func validateVmParams(d *schema.ResourceData) error {
 	default:
 		error_output = append(error_output, "Status does not match any of the existing ones\n - poweroff\n - runnning\n - paused \n - saved \n - aborted")
 		amountOfProblems++
+	}
+
+	checkMode := func(nicMode string) error {
+		switch nicMode {
+		case "none":
+			return nil
+		case "null":
+			return nil
+		case "nat":
+			return nil
+		case "natnetwork":
+			return nil
+		case "bridged":
+			return nil
+		case "intnet":
+			return nil
+		case "hostonly":
+			return nil
+		case "generic":
+			return nil
+		default:
+			return fmt.Errorf("nic mode does not match any of the existing ones")
+		}
+	}
+
+	checkType := func(nicType string) error {
+		switch nicType {
+		case "Am79C970A":
+			return nil
+		case "Am79C973":
+			return nil
+		case "82540EM":
+			return nil
+		case "82543GC":
+			return nil
+		case "82545EM":
+			return nil
+		case "virtio":
+			return nil
+		default:
+			return fmt.Errorf("nic type does not match any of the existing ones")
+		}
+	}
+
+	amountOfNICs := d.Get("network_adapter.#").(int)
+	var err error
+
+	for i := 0; i < amountOfNICs; i++ {
+		nicReport := fmt.Sprintf("NIC %d:\n", i)
+		badFormat := false
+
+		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
+		currentMode := d.Get(requestMode).(string)
+		if err = checkMode(currentMode); err != nil {
+			nicReport += fmt.Sprintf("\t%s\n", err)
+			badFormat = true
+		}
+
+		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
+		currentType := d.Get(requestType).(string)
+		if err = checkType(currentType); err != nil {
+			nicReport += fmt.Sprintf("\t%s\n", err)
+			badFormat = true
+		}
+
+		if badFormat {
+			error_output = append(error_output, nicReport)
+			amountOfProblems++
+		}
 	}
 
 	if amountOfProblems == 0 {
