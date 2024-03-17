@@ -12,9 +12,6 @@ jobs:
         options: --privileged
 
     steps:
-    - name: Check out code
-      uses: actions/checkout@v2
-      
     - name: Set up Docker Buildx
       run: docker buildx create --use
       
