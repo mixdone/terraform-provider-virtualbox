@@ -22,6 +22,13 @@ resource "virtualbox_server" "bad_VM_example" {
     snapshot {
       name = "hello"
       description = "hohohhoho"
+      current = true
+    }
+
+    snapshot {
+      name = "hello2"
+      description = "hohohhoho"
+      
     }
 }
 
@@ -50,13 +57,14 @@ resource "virtualbox_server" "VM_VDI" {
 
 
 resource "virtualbox_server" "VM_network" {
-    count     = 1
+    count     = 0
     name      = format("VM_network-%02d", count.index + 1)
     basedir = format("VM_network-%02d", count.index + 1)
     cpus      = 3000
     memory    = 50000000000
 
     status = "fsdjalkjflkdsj"
+    group = "jalskdfj"
 
     network_adapter {
         network_mode = "adf"

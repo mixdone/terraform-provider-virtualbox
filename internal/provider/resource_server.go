@@ -187,6 +187,12 @@ func resourceVM() *schema.Resource {
 							Optional: true,
 							Default:  "",
 						},
+
+						"current": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
 					},
 				},
 			},
@@ -540,13 +546,20 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		vm.Spec.Snapshots = append(vm.Spec.Snapshots, emptySnapshts...)
 	}
 
+	var currentSnap vbg.Snapshot
+
 	for i := 0; i < snapshots; i++ {
 		var snapshot vbg.Snapshot
 		req1 := fmt.Sprintf("snapshot.%d.name", i)
 		req2 := fmt.Sprintf("snapshot.%d.description", i)
+		req3 := fmt.Sprintf("snapshot.%d.current", i)
 
 		snapshot.Name = d.Get(req1).(string)
 		snapshot.Description = d.Get(req2).(string)
+		current := d.Get(req3).(bool)
+		if current {
+			currentSnap = snapshot
+		}
 
 		if vm.Spec.Snapshots[i].Name == "" {
 			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], snapshot, "take", status)
@@ -559,6 +572,12 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	if diff > 0 {
 		for i := snapshots; i < snapshots+diff; i++ {
 			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], vm.Spec.Snapshots[i], "delete", status)
+		}
+	}
+
+	if currentSnap.Name != "" {
+		if err := vb.RestoreSnapshot(vm, currentSnap); err != nil {
+			return diag.Errorf("Snapshot restore failed: %s", err.Error())
 		}
 	}
 
@@ -680,10 +699,21 @@ func setSnapshots(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 	arr := make([]map[string]interface{}, 0, 3)
 
 	for i := 0; i < len(vm.Spec.Snapshots); i++ {
-		arr = append(arr, map[string]interface{}{
-			"name":        vm.Spec.Snapshots[i].Name,
-			"description": vm.Spec.Snapshots[i].Description,
-		})
+		if vm.Spec.Snapshots[i].Name == vm.Spec.CurrentSnapshot.Name &&
+			vm.Spec.Snapshots[i].Description == vm.Spec.CurrentSnapshot.Description {
+			arr = append(arr, map[string]interface{}{
+				"name":        vm.Spec.Snapshots[i].Name,
+				"description": vm.Spec.Snapshots[i].Description,
+				"current":     true,
+			})
+		} else {
+			arr = append(arr, map[string]interface{}{
+				"name":        vm.Spec.Snapshots[i].Name,
+				"description": vm.Spec.Snapshots[i].Description,
+				"current":     false,
+			})
+		}
+
 	}
 
 	if err := d.Set("snapshot", arr); err != nil {
@@ -735,6 +765,13 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		}
 	}
 
+	//velociped
+	if len(vm.Spec.NICs) == 1 {
+		if vm.Spec.NICs[0].Mode == "nat" && vm.Spec.NICs[0].Type == "82540EM" {
+			return nil
+		}
+	}
+
 	nics := make([]map[string]any, 0, 4)
 	for i, nic := range vm.Spec.NICs {
 		out := make(map[string]any)
@@ -768,9 +805,30 @@ func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 		amountOfProblems++
 	}
 
+	val, ok := d.GetOk("group")
+	if ok {
+		group := val.(string)
+		if group != "" && group[0] != '/' && group[0] != '\\' {
+			error_output = append(error_output, fmt.Sprintf("Not a path in group field, try /%v", group))
+			amountOfProblems++
+		}
+	}
+
 	snapshots := d.Get("snapshot.#").(int)
 	if isCreate && snapshots > 1 {
 		error_output = append(error_output, "Too many snapshots for a new VM")
+		amountOfProblems++
+	}
+
+	counter := 0
+	for i := 0; i < snapshots; i++ {
+		req1 := fmt.Sprintf("snapshot.%d.current", i)
+		if d.Get(req1).(bool) {
+			counter++
+		}
+	}
+	if counter > 1 {
+		error_output = append(error_output, "Only one snapshot can be current")
 		amountOfProblems++
 	}
 
