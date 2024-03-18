@@ -56,12 +56,14 @@ resource "virtualbox_server" "VM_network" {
     cpus      = 3000
     memory    = 50000000000
 
+    status = "fsdjalkjflkdsj"
+
     network_adapter {
         network_mode = "adf"
     }
     network_adapter {
         network_mode = "asdfsadf"
-        nic_type = "82540EM"
+        nic_type = "82jdsjflksjlM"
         cable_connected = true
     }
     network_adapter {
@@ -72,7 +74,15 @@ resource "virtualbox_server" "VM_network" {
         nic_type = "virtio"
     }
 
-    status = "poweroff"
+    snapshot {
+      name = "hello"
+      description = "eeee"
+    }
+
+    snapshot {
+      name = "hello2"
+      description = "hohoho"
+    }
 }
 
 # resource "virtualbox_server" "VM_ISO" {

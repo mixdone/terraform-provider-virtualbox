@@ -770,7 +770,7 @@ func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 
 	snapshots := d.Get("snapshot.#").(int)
 	if isCreate && snapshots > 1 {
-		error_output = append(error_output, fmt.Sprintf("Too many snapshots for a new VM - %s", d.Get("name").(string)))
+		error_output = append(error_output, "Too many snapshots for a new VM")
 		amountOfProblems++
 	}
 
@@ -787,7 +787,7 @@ func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 	case "aborted":
 		break
 	default:
-		error_output = append(error_output, "Status does not match any of the existing ones\n - poweroff\n - runnning\n - paused \n - saved \n - aborted")
+		error_output = append(error_output, "Status does not match any of the existing ones\n\t- poweroff\n\t- runnning\n\t- paused \n\t- saved \n\t- aborted")
 		amountOfProblems++
 	}
 
@@ -810,10 +810,9 @@ func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 		case "generic":
 			return nil
 		default:
-			return fmt.Errorf("nic mode does not match any of the existing ones")
+			return fmt.Errorf("mode does not match any of the existing ones")
 		}
 	}
-
 	checkType := func(nicType string) error {
 		switch nicType {
 		case "Am79C970A":
@@ -829,15 +828,18 @@ func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 		case "virtio":
 			return nil
 		default:
-			return fmt.Errorf("nic type does not match any of the existing ones")
+			return fmt.Errorf("type does not match any of the existing ones")
 		}
 	}
 
 	amountOfNICs := d.Get("network_adapter.#").(int)
 	var err error
+	badNICsMode := false
+	badNICsType := false
+	allNICReports := "\n"
 
 	for i := 0; i < amountOfNICs; i++ {
-		nicReport := fmt.Sprintf("NIC %d:\n", i)
+		nicReport := fmt.Sprintf("  NIC %d:\n", i)
 		badFormat := false
 
 		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
@@ -845,6 +847,7 @@ func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 		if err = checkMode(currentMode); err != nil {
 			nicReport += fmt.Sprintf("\t%s\n", err)
 			badFormat = true
+			badNICsMode = true
 		}
 
 		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
@@ -852,19 +855,31 @@ func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 		if err = checkType(currentType); err != nil {
 			nicReport += fmt.Sprintf("\t%s\n", err)
 			badFormat = true
+			badNICsType = true
 		}
 
 		if badFormat {
-			error_output = append(error_output, nicReport)
-			amountOfProblems++
+			allNICReports += nicReport + "\n"
 		}
+	}
+
+	if badNICsMode || badNICsType {
+		if badNICsMode {
+			allNICReports += "\n  NIC modes:\n\t- none\n\t- null\n\t- nat\n\t- natnetwork\n\t- bridget\n\t- intnet\n\t- hostonly\n\t- generic\n"
+		}
+
+		if badNICsType {
+			allNICReports += "\n  NIC types:\n\t- Am79C970A\n\t- Am79C970A\n\t- 82540EM\n\t- 82543GC\n\t- 82545EM\n\t- virtio\n"
+		}
+		amountOfProblems++
+		error_output = append(error_output, allNICReports)
 	}
 
 	if amountOfProblems == 0 {
 		return nil
 	}
 
-	report := "\n"
+	report := fmt.Sprintf("VM: %v\n", d.Get("name").(string))
 	for i := 1; i <= amountOfProblems; i++ {
 		report += fmt.Sprintf("%v) %s\n", i, error_output[i-1])
 	}
