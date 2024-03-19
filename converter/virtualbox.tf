@@ -11,19 +11,35 @@ resource "virtualbox_server" "VM1" {
 
 resource "virtualbox_server" "VM2" {
     name      = "vm2"
-    count = 2
+    count = 1
     basedir = format("VM2-%02d", count.index + 1)
-    cpus      = 2
+    cpus      = 1
     memory    = 2000
     status = "poweroff"
     os_id = "Debian9_64"
+
+    network_adapter {
+        network_mode = "nat"
+    }
+    network_adapter {
+        network_mode = "nat"
+        nic_type = "82540EM"
+        cable_connected = true
+    }
+    network_adapter {
+        network_mode = "hostonly"
+    }
+    network_adapter {
+        network_mode = "bridged"
+        nic_type = "virtio"
+    }
 }
 
 resource "virtualbox_server" "VM3" {
     name      = "vm3"
     basedir = format("VM3-%02d", count.index + 1)
     cpus      = 1
-    memory    = 2000
+    memory    = 1000
     os_id = "Fedora_64"
     vdi_size = 1000
 }

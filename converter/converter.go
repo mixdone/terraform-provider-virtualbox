@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -19,26 +20,46 @@ var ErrOsIdNotDefined = errors.New("os_id must be specified")
 var ErrCpusNotDefined = errors.New("cpus must be specified")
 var ErrMemoryNotDefined = errors.New("memory must be specified")
 
-func scan_info(config *os.File) (map[string](map[string]string), error) {
-	info := make(map[string](map[string]string))
+func scan_info(config *os.File) (map[string](map[string]string), map[string](map[int](map[string]string)), error) {
+	general_info := make(map[string](map[string]string))
+	network_adapters := make(map[string](map[int](map[string]string)))
 	scanner := bufio.NewScanner(config)
 	currVM := ""
+	network_adapter_count := 0
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		if strings.Contains(line, "=") {
 			splited := strings.Split(line, "=")
-			info[currVM][strings.TrimSpace(splited[0])] = strings.TrimSpace(splited[1])
+			general_info[currVM][strings.TrimSpace(splited[0])] = strings.TrimSpace(splited[1])
 		} else if strings.Contains(line, "resource \"virtualbox_server\"") {
 			splited := strings.Split(line, " ")
 			currVM = splited[2]
-			info[currVM] = make(map[string]string)
+			general_info[currVM] = make(map[string]string)
+			network_adapters[currVM] = make(map[int](map[string]string))
+		} else if strings.Contains(line, "network_adapter") {
+			network_adapters[currVM][network_adapter_count] = make(map[string]string)
+			if scanner.Scan() {
+				line = scanner.Text()
+			}
+			for {
+				if strings.TrimSpace(line) == "}" {
+					break
+				} else if strings.Contains(line, "=") {
+					splited := strings.Split(line, "=")
+					network_adapters[currVM][network_adapter_count][strings.TrimSpace(splited[0])] = strings.TrimSpace(splited[1])
+				}
+				if scanner.Scan() {
+					line = scanner.Text()
+				}
+			}
+			network_adapter_count++
 		}
 	}
 
 	err := scanner.Err()
 
-	return info, err
+	return general_info, network_adapters, err
 }
 
 func get_yc_images() (map[string]string, error) {
@@ -187,11 +208,23 @@ func resource_boot_disk(resources map[string]string, new_config *os.File, yc_ima
 	return nil
 }
 
-// TODO: Write resource_network_interface
-func resource_network_interface(new_config *os.File) {
+func resource_network_interface(network_adapters map[int]map[string]string, new_config *os.File, subnet_name string) {
+	nat := false
+	if len(network_adapters) == 0 {
+		nat = true
+	} else {
+		for _, network_adapter := range network_adapters {
+			if network_adapter["network_mode"] == "\"nat\"" {
+				nat = true
+				break
+			}
+		}
+	}
 	fmt.Fprint(new_config, "\tnetwork_interface {\n")
-	fmt.Fprint(new_config, "\t\tsubnet_id = \"[192.168.0.0/16]\"\n")
-	fmt.Fprint(new_config, "\t\tnat = true\n")
+	fmt.Fprintf(new_config, "\t\tsubnet_id = \"${yandex_vpc_subnet.%s.id}\"\n", subnet_name)
+	if nat {
+		fmt.Fprint(new_config, "\t\tnat = true\n")
+	}
 	fmt.Fprint(new_config, "\t}\n")
 }
 
@@ -226,8 +259,80 @@ func required_resources(resources map[string]string, new_config *os.File) error 
 	return nil
 }
 
-func conversion_of_resources(info map[string]map[string]string, new_config *os.File, yc_images map[string]string) {
-	for reference_name, resources := range info {
+func network_creation(new_config *os.File) (string, error) {
+	var network_name string
+	fmt.Println("Please write a name for the network.")
+	if _, err := fmt.Scan(&network_name); err != nil {
+		return "", err
+	}
+	fmt.Fprintf(new_config, "resource \"yandex_vpc_network\" \"%s\" {\n", network_name)
+	fmt.Fprintf(new_config, "\tname =  \"%s\"\n", network_name)
+	fmt.Fprint(new_config, "}\n\n")
+	return network_name, nil
+}
+
+func subnet_creation(new_config *os.File, network_name string) (string, error) {
+	var subnet_name string
+	fmt.Println("Please write a name for the subnet.")
+	_, err := fmt.Scan(&subnet_name)
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprintf(new_config, "resource \"yandex_vpc_subnet\" \"%s\" {\n", subnet_name)
+	fmt.Fprintf(new_config, "\tname =  \"%s\"\n", subnet_name)
+	var v4_cidr_blocks string
+	for {
+		fmt.Println(`Please write a list of blocks of internal IPv4 addresses that are owned by this subnet.
+For example, 10.0.0.0/22 or 192.168.0.0/16.
+Blocks of addresses must be unique and non-overlapping within a network.
+Minimum subnet size is /28, and maximum subnet size is /16. Only IPv4 is supported.`)
+		_, err := fmt.Scan(&v4_cidr_blocks)
+		if err != nil {
+			return "", err
+		}
+		splited := strings.Split(v4_cidr_blocks, "/")
+		if len(splited) < 2 {
+			fmt.Println("Invalid input!")
+			continue
+		}
+		mask, err := strconv.Atoi(splited[1])
+		if (err != nil) || (16 > mask) || (mask > 28) {
+			fmt.Println("Invalid subnet size!")
+			continue
+		}
+		_, err = netip.ParseAddr(splited[0])
+		if err != nil {
+			fmt.Println("Invalid IPv4 addresses!")
+			continue
+		}
+		break
+	}
+	fmt.Fprintf(new_config, "\tv4_cidr_blocks = [\"%s\"]\n", v4_cidr_blocks)
+	zones := []string{"ru-central1-a", "ru-central1-b", "ru-central1-c", "ru-central1-d"}
+	var zone int
+	for {
+		fmt.Println("Please select the name of the Yandex.Cloud zone for this subnet. from this list. Write only the number")
+		for i, zone := range zones {
+			fmt.Printf("%d. %s\n", i+1, zone)
+
+		}
+		if _, err := fmt.Scan(&zone); err != nil {
+			fmt.Println("Invalid input!")
+			continue
+		}
+		if (1 <= zone) && (zone <= 4) {
+			break
+		}
+		fmt.Println("Invalid number!")
+	}
+	fmt.Fprintf(new_config, "\tzone = \"%s\"\n", zones[zone-1])
+	fmt.Fprintf(new_config, "\tnetwork_id = \"${yandex_vpc_network.%s.id}\"\n", network_name)
+	fmt.Fprint(new_config, "}\n\n")
+	return subnet_name, nil
+}
+
+func conversion_of_resources(general_info map[string]map[string]string, network_adapters map[string](map[int](map[string]string)), new_config *os.File, yc_images map[string]string, subnet_name string) {
+	for reference_name, resources := range general_info {
 		fmt.Fprintf(new_config, "resource \"yandex_compute_instance\" %s {\n", reference_name)
 
 		optional_fields(resources, new_config)
@@ -238,7 +343,7 @@ func conversion_of_resources(info map[string]map[string]string, new_config *os.F
 			log.Fatalf("Error with resource boot disk: %s", err.Error())
 		}
 
-		resource_network_interface(new_config)
+		resource_network_interface(network_adapters[reference_name], new_config, subnet_name)
 
 		if err := required_resources(resources, new_config); err != nil {
 			new_config.Close()
@@ -266,7 +371,7 @@ func main() {
 	}
 	defer config.Close()
 
-	info, err := scan_info(config)
+	general_info, network_adapters, err := scan_info(config)
 	if err != nil {
 		log.Fatalf("Error with information scanning: %s", err.Error())
 	}
@@ -286,5 +391,13 @@ func main() {
 		log.Fatalf("Error with getting yc images: %s", err.Error())
 	}
 
-	conversion_of_resources(info, new_config, yc_images)
+	network_name, err := network_creation(new_config)
+	if err != nil {
+		log.Fatalf("Error with network creation: %s", err.Error())
+	}
+	subnet_name, err := subnet_creation(new_config, network_name)
+	if err != nil {
+		log.Fatalf("Error with subnet creation: %s", err.Error())
+	}
+	conversion_of_resources(general_info, network_adapters, new_config, yc_images, subnet_name)
 }
