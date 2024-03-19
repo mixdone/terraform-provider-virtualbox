@@ -18,17 +18,19 @@ const (
 )
 
 type VMConfig struct {
-	Name       string
-	CPUs       int
-	Memory     int
-	Image_path string
-	Dirname    string
-	Ltype      LoadingType
-	Vdi_size   int64
-	OS_id      string
-	Group      string
-	Snapshot   vbg.Snapshot
-	NICs       []vbg.NIC
+	Name        string
+	CPUs        int
+	Memory      int
+	Image_path  string
+	Dirname     string
+	Ltype       LoadingType
+	Vdi_size    int64
+	OS_id       string
+	Group       string
+	Snapshot    vbg.Snapshot
+	NICs        []vbg.NIC
+	DragAndDrop string
+	Clipboard   string
 }
 
 // create VM with chosen loading type
@@ -114,6 +116,8 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 		Group:           vmCfg.Group,
 		CurrentSnapshot: vmCfg.Snapshot,
 		NICs:            vmCfg.NICs,
+		DragAndDrop:     vmCfg.DragAndDrop,
+		//Clipboard:       vmCfg.Clipboard,
 	}
 
 	vm := &vbg.VirtualMachine{

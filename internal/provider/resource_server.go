@@ -171,6 +171,20 @@ func resourceVM() *schema.Resource {
 				Default:     "Linux_64",
 			},
 
+			"drag_and_drop": {
+				Description: "Set drag_and_drop option (disabled | hosttoguest | guesttohost | bidirectional).",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "disabled",
+			},
+
+			"clipboard": {
+				Description: "Set clipboard option (disabled | hosttoguest | guesttohost | bidirectional).",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "disabled",
+			},
+
 			"snapshot": {
 				Type:        schema.TypeList,
 				Description: "Adds a list of snapshots. You can add a new Snapshot, edit or delete existing ones.",
@@ -327,6 +341,8 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.Ltype = ltype
 	vmConf.Image_path = image
 	vmConf.NICs = NICs[:]
+	vmConf.DragAndDrop = d.Get("drag_and_drop").(string)
+	vmConf.Clipboard = d.Get("drag_and_drop").(string)
 
 	// Creating VM with specified parametrs
 	vm, err := pkg.CreateVM(vmConf)
@@ -355,6 +371,17 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		if err = setState(d, vm); err != nil {
 			return diag.Errorf("Setting state failed: %s", err.Error())
 		}
+		if vm.Spec.DragAndDrop != "disabled" {
+			if _, err := vb.ControlVM(vm, "draganddrop"); err != nil {
+				return diag.Errorf("Unable to set draganddrop VM: %s", err.Error())
+			}
+		}
+
+		// if vm.Spec.Clipboard != "disabled" {
+		// 	if _, err := vb.ControlVM(vm, "clipboard"); err != nil {
+		// 		return diag.Errorf("Unable to set clipboard VM: %s", err.Error())
+		// 	}
+		// }
 	}
 
 	return resourceVirtualBoxRead(ctx, d, m)
@@ -509,6 +536,18 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		parameters = append(parameters, "group")
 		vm.Spec.Group = group
 	}
+
+	dragAndDrop := d.Get("drag_and_drop").(string)
+	if vm.Spec.DragAndDrop != dragAndDrop {
+		parameters = append(parameters, "drag_and_drop")
+		vm.Spec.DragAndDrop = dragAndDrop
+	}
+
+	// clipboardMode := d.Get("clipboard").(string)
+	// if vm.Spec.DragAndDrop != dragAndDrop {
+	// 	parameters = append(parameters, "clipboard")
+	// 	vm.Spec.Clipboard = clipboardMode
+	// }
 
 	// Modify VM
 	if len(parameters) != 0 {
