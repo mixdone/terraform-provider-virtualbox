@@ -88,6 +88,76 @@ func resourceVM() *schema.Resource {
 				ForceNew:    true,
 			},
 
+			"network_adapter": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"index": {
+							Type:     schema.TypeInt,
+							Computed: true,
+						},
+						"network_mode": {
+							Description: "nat, hostonly etc",
+							Type:        schema.TypeString,
+							Optional:    true,
+							Default:     "none",
+						},
+						"nic_type": {
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "Am79C970A",
+						},
+						"cable_connected": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+						"port_forwarding": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"name": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+
+									"protocol": {
+										Description: "tcp|udp",
+										Type:        schema.TypeString,
+										Optional:    true,
+										Default:     "tcp",
+									},
+
+									"hostip": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Default:  "",
+									},
+
+									"hostport": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+
+									"guestip": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Default:  "",
+									},
+
+									"guestport": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+
 			"user_data": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -124,14 +194,19 @@ func resourceVM() *schema.Resource {
 	}
 }
 
+// resourceVirtualBoxCreate creates a virtual machine
+// function accepts a ctx context, resource data d, and an interface m representing shared data.
+// returns diagnostic messages in case of errors.
 func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Geting data from config
 	if err := validateVmParams(d); err != nil {
 		return diag.Errorf(err.Error())
 	}
 
+	// Initializing structure for storing virtual machine parameters
 	var vmConf pkg.VMConfig
 
+	// Getting parameters from ResourceData
 	vmConf.Name = d.Get("name").(string)
 	vmConf.CPUs = d.Get("cpus").(int)
 	vmConf.Memory = d.Get("memory").(int)
@@ -139,6 +214,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.OS_id = d.Get("os_id").(string)
 	vmConf.Group = d.Get("group").(string)
 
+	// Processing snapshots
 	snapshots := d.Get("snapshot.#").(int)
 	if snapshots > 0 {
 		snapshots = 1
@@ -174,6 +250,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	im, ok := d.GetOk("image")
 	image := im.(string)
 	if !ok {
+		// Handling the case of an image missing in the configuration
 		url, ok := d.GetOk("url")
 		if !ok {
 			ltype = 2
@@ -204,8 +281,58 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// Configuring virtual machine network adapters based on data from ResourceData
+	var NICs [20]vbg.NIC
+
+	// Initializing network adapters
+	for i, nic := range NICs {
+		nic.Index = i
+		nic.NetworkName = ""
+		nic.Mode = "none"
+		nic.Type = "Am79C970A"
+		nic.CableConnected = false
+	}
+	//rule := make([]vbg.PortForwarding, 10)
+	nicNumber := d.Get("network_adapter.#").(int)
+
+	// Getting and applying parameters for each network adapter
+	for i := 0; i < nicNumber; i++ {
+
+		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
+		currentMode := d.Get(requestMode).(string)
+
+		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
+		currentType := d.Get(requestType).(string)
+
+		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
+		currentCable := d.Get(requestCable).(bool)
+
+		NICs[i].Index = i + 1
+		NICs[i].Mode = vbg.NetworkMode(currentMode)
+		NICs[i].Type = vbg.NICType(currentType)
+		NICs[i].CableConnected = currentCable
+
+		//portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
+
+		// for j := 0; j < portForwardingNumber; j++ {
+		// 	currentPF := vbg.PortForwarding{
+		// 		Index:     i,
+		// 		Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
+		// 		Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
+		// 		HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
+		// 		HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
+		// 		GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
+		// 		GuestPort: d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)).(int),
+		// 	}
+		// 	rule = append(rule, currentPF)
+		// }
+	}
+
 	vmConf.Ltype = ltype
 	vmConf.Image_path = image
+
+	// Applying network adapter settings to VMConfig
+	vmConf.NICs = NICs[:]
 
 	// Creating VM with specified parametrs
 	vm, err := pkg.CreateVM(vmConf)
@@ -216,8 +343,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	// Setting the VM id for Terraform
 	d.SetId(vm.UUIDOrName())
 
+	// Getting information about VM and managing it
 	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
 
+	// Updating status of virtual machine
 	vm, err = vb.VMInfo(d.Id())
 	if err != nil {
 		d.SetId("")
@@ -239,19 +368,25 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	return resourceVirtualBoxRead(ctx, d, m)
 }
 
+// resourceVirtualBoxRead reads information about virtual machine
+// function accepts a ctx context, resource data d, and an interface m representing shared data.
+// returns diagnostic messages in case of errors.
 func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
 	// Getting Machine by id
 	homedir, err := os.UserHomeDir()
 	if err != nil {
 		return diag.Errorf("userhomedir failed: %s", err.Error())
 	}
 
+	// Creating basic path for VirtualBox
 	basePath := filepath.Join(homedir, d.Get("basedir").(string))
 	vb := vbg.NewVBox(vbg.Config{BasePath: basePath})
 	vm, err := vb.VMInfo(d.Id())
 
 	logrus.Info(vm.Spec.CurrentSnapshot.Name)
 
+	// Displaying information about virtual machine snapshots
 	for i := 0; i < len(vm.Spec.Snapshots); i++ {
 		logrus.Info(vm.Spec.Snapshots[i].Name)
 		logrus.Info(vm.Spec.Snapshots[i].Description)
@@ -267,11 +402,17 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
 	}
 
+	// Setting network settings
+	if err := setNetwork(d, vm); err != nil {
+		return diag.Errorf("Didn't manage to set Network: %s", err.Error())
+	}
+
 	// Set name of Machine for Terraform
 	if err := d.Set("name", vm.Spec.Name); err != nil {
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
 	}
 
+	// Creating array with information about snapshots
 	arr := make([]map[string]interface{}, 0, 3)
 
 	for i := 0; i < len(vm.Spec.Snapshots); i++ {
@@ -281,6 +422,7 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		})
 	}
 
+	// Set information about snapshots
 	if err := d.Set("snapshot", arr); err != nil {
 		return diag.Errorf("Didn't manage to set snapshot: %s", err.Error())
 	}
@@ -303,22 +445,33 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	return nil
 }
 
+// poweroffVM performs shutdown of virtual machine
+// function accepts a ctx context, resource data d, and an interface m representing shared data.
+// returns diagnostic messages in case of errors.
 func poweroffVM(ctx context.Context, d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) error {
+	// Checking current state of virtual machine
 	switch vm.Spec.State {
 	case vbg.Poweroff, vbg.Aborted, vbg.Saved:
 		return nil
 	}
 
+	// Shutting down virtual machine
 	if _, err := vb.ControlVM(vm, "poweroff"); err != nil {
 		logrus.Errorf("Unable to poweroff VM: %s", err.Error())
 		return err
 	}
 
+	// Setting virtual machine status to "poweroff"
 	vm.Spec.State = vbg.Poweroff
 	return nil
 }
 
+// resourceVirtualBoxUpdate updates virtual machine settings
+// function accepts a ctx context, resource data d, and an interface m representing shared data.
+// returns diagnostic messages in case of errors.
 func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+
+	// Checking parameters of virtual machine
 	if err := validateVmParams(d); err != nil {
 		return diag.Errorf(err.Error())
 	}
@@ -372,6 +525,49 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		vm.Spec.OSType.ID = newOs_id
 	}
 
+	// Setting new network adapters
+	needAppendNetwork := false
+	nicNumber := d.Get("network_adapter.#").(int)
+
+	// Adding new network adapters if necessary
+	if len(vm.Spec.NICs) < nicNumber {
+		var NICs = make([]vbg.NIC, nicNumber-len(vm.Spec.NICs))
+		vm.Spec.NICs = append(vm.Spec.NICs, NICs...)
+	}
+
+	// Iterating through and updating parameters of each network adapter
+	for i := 0; i < nicNumber; i++ {
+		vm.Spec.NICs[i].Index = i + 1
+
+		// Updating operating mode of network adapter
+		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
+		currentMode := vbg.NetworkMode(d.Get(requestMode).(string))
+		if currentMode != vm.Spec.NICs[i].Mode {
+			needAppendNetwork = true
+			vm.Spec.NICs[i].Mode = currentMode
+		}
+
+		// Updating type of network adapter
+		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
+		currentType := vbg.NICType(d.Get(requestType).(string))
+		if currentType != vm.Spec.NICs[i].Type {
+			needAppendNetwork = true
+			vm.Spec.NICs[i].Type = currentType
+		}
+
+		// Updating connection status of network adapter cable
+		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
+		currentCable := d.Get(requestCable).(bool)
+		if currentCable != vm.Spec.NICs[i].CableConnected {
+			needAppendNetwork = true
+			vm.Spec.NICs[i].CableConnected = currentCable
+		}
+	}
+	if needAppendNetwork {
+		parameters = append(parameters, "network_adapter")
+	}
+
+	// Updating VM group
 	group := d.Get("group").(string)
 	if vm.Spec.Group != group {
 		parameters = append(parameters, "group")
@@ -393,6 +589,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	// Updating state
 	status := d.Get("status").(string)
 
+	// Virtual machine status management (startup/shutdown)
 	logrus.Printf("%s -> %s", vm.Spec.State, status)
 	if status != string(vm.Spec.State) {
 		if _, err := vb.ControlVM(vm, status); err != nil {
@@ -405,6 +602,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// Updating Virtual Machine snapshots
 	snapshots := d.Get("snapshot.#").(int)
 
 	diff := len(vm.Spec.Snapshots) - snapshots
@@ -414,6 +612,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		vm.Spec.Snapshots = append(vm.Spec.Snapshots, emptySnapshts...)
 	}
 
+	// Processing adding/updating/deleting snapshots
 	for i := 0; i < snapshots; i++ {
 		var snapshot vbg.Snapshot
 		req1 := fmt.Sprintf("snapshot.%d.name", i)
@@ -439,6 +638,10 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	return resourceVirtualBoxRead(ctx, d, m)
 }
 
+// snapshotOperationsHandler processes virtual machine snapshot operations
+// function accepts a pointer to VirtualBox vb object, a pointer to VirtualMachine vm object,
+// previous prevSnapshot snapshot, current snapshot, operation type and status
+// returns an error if operation failed
 func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, prevSnapshot vbg.Snapshot, snapshot vbg.Snapshot, operation string, status string) error {
 	var err error
 	switch operation {
@@ -468,6 +671,10 @@ func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, prevSnapsho
 	}
 }
 
+// resourceVirtualBoxExists checks existence of VirtualBox VM by its ID
+// function accepts a pointer to schema object.ResourceData d, which contains virtual machine ID,
+// and interface m, which represents execution context
+// returns a boolean value
 func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
 	vb := vbg.NewVBox(vbg.Config{})
 	_, err := vb.VMInfo(d.Id())
@@ -481,6 +688,9 @@ func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, erro
 	}
 }
 
+// resourceVirtualBoxDelete deletes virtual machine
+// function accepts a ctx context, resource data d, and an interface m representing shared data.
+// returns diagnostic messages in case of errors.
 func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Getting VM by id
 	homedir, err := os.UserHomeDir()
@@ -518,6 +728,10 @@ func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m int
 	return nil
 }
 
+// setState sets state of virtual machine in schema object.ResourceData
+// function accepts a pointer to schema object.ResourceData d, which represents state of resource,
+// and a pointer to vbs.VirtualMachine vm object, which contains information about state of virtual machine
+// function sets value "status" in object d according to current state of vm
 func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 	var err error
 	switch vm.Spec.State {
@@ -535,6 +749,84 @@ func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 	return err
 }
 
+// setNetwork sets information about network adapters in schema object.ResourceData
+// based on data about network interfaces of virtual machine
+// function accepts a pointer to schema object.ResourceData d, which represents state of resource,
+// and a pointer to vbs.VirtualMachine vm object, which contains information about network interfaces of VM
+// function creates an array with information about each network adapter of virtual machine and
+// installs it in object d under key "network_adapter", each element of array contains adapter index,
+// network mode, adapter type, and cable connection status
+func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
+
+	// getType helper function returns a string representation of type of network adapter
+	getType := func(nic vbg.NIC) string {
+		switch nic.Type {
+		case vbg.NIC_Am79C970A:
+			return "Am79C970A"
+		case vbg.NIC_Am79C973:
+			return "Am79C973"
+		case vbg.NIC_82540EM:
+			return "82540EM"
+		case vbg.NIC_82543GC:
+			return "82543GC"
+		case vbg.NIC_82545EM:
+			return "82545EM"
+		case vbg.NIC_virtio:
+			return "virtio"
+		default:
+			return ""
+		}
+	}
+
+	// getMode helper function returns a string representation of network mode for network adapter
+	getMode := func(nic vbg.NIC) string {
+		switch nic.Mode {
+		case vbg.NWMode_none:
+			return "none"
+		case vbg.NWMode_null:
+			return "null"
+		case vbg.NWMode_nat:
+			return "nat"
+		case vbg.NWMode_natnetwork:
+			return "natnetwork"
+		case vbg.NWMode_bridged:
+			return "bridged"
+		case vbg.NWMode_intnet:
+			return "intnet"
+		case vbg.NWMode_hostonly:
+			return "hostonly"
+		case vbg.NWMode_generic:
+			return "generic"
+		default:
+			return ""
+		}
+	}
+
+	// Creating empty array to store information about network adapters
+	nics := make([]map[string]any, 0, 4)
+	// Iterating through all network adapters of virtual machine and create information about each adapter
+	for i, nic := range vm.Spec.NICs {
+		out := make(map[string]any)
+		out["index"] = i + 1
+		out["network_mode"] = getMode(nic)
+		out["nic_type"] = getType(nic)
+		out["cable_connected"] = nic.CableConnected
+		nics = append(nics, out)
+	}
+
+	if err := d.Set("network_adapter", nics); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateVmParams checks VM parameters passed in schema object.ResourceData d for correctness
+// function returns an error if problems with parameters are detected
+// parameters to be checked:
+// - number of processors: must be greater than 0 and not exceed number of available processors in system
+// - memory size: must be greater than 0 and not exceed total amount of available memory in system
+// - status: must match one of the following values: "poweroff", "running", "paused", "saved", "aborted"
 func validateVmParams(d *schema.ResourceData) error {
 	amountOfProblems := 0
 	var error_output []string
