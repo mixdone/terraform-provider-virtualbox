@@ -6,7 +6,7 @@ require (
 	github.com/hashicorp/terraform-plugin-docs v0.18.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.32.0
 	github.com/mholt/archiver v3.1.1+incompatible
-	github.com/mixdone/virtualbox-go v0.0.0-20240319174410-ee178311aa27
+	github.com/mixdone/virtualbox-go v0.0.0-20240322150517-a810c04ce1cd
 	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
 	github.com/sirupsen/logrus v1.9.3
 )

@@ -117,7 +117,7 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 		CurrentSnapshot: vmCfg.Snapshot,
 		NICs:            vmCfg.NICs,
 		DragAndDrop:     vmCfg.DragAndDrop,
-		//Clipboard:       vmCfg.Clipboard,
+		Clipboard:       vmCfg.Clipboard,
 	}
 
 	vm := &vbg.VirtualMachine{

@@ -8,6 +8,7 @@ resource "virtualbox_server" "VM_without_image" {
     status = "running"
     os_id = "Windows7_64"
     drag_and_drop = "guesttohost"
+    clipboard = "guesttohost"
 }
 
 resource "virtualbox_server" "bad_VM_example" {

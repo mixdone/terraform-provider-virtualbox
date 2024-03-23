@@ -228,6 +228,8 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.Vdi_size = int64(d.Get("vdi_size").(int))
 	vmConf.OS_id = d.Get("os_id").(string)
 	vmConf.Group = d.Get("group").(string)
+	vmConf.DragAndDrop = d.Get("drag_and_drop").(string)
+	vmConf.Clipboard = d.Get("clipboard").(string)
 
 	snapshots := d.Get("snapshot.#").(int)
 	if snapshots > 0 {
@@ -341,8 +343,6 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.Ltype = ltype
 	vmConf.Image_path = image
 	vmConf.NICs = NICs[:]
-	vmConf.DragAndDrop = d.Get("drag_and_drop").(string)
-	vmConf.Clipboard = d.Get("drag_and_drop").(string)
 
 	// Creating VM with specified parametrs
 	vm, err := pkg.CreateVM(vmConf)
@@ -371,17 +371,16 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		if err = setState(d, vm); err != nil {
 			return diag.Errorf("Setting state failed: %s", err.Error())
 		}
-		if vm.Spec.DragAndDrop != "disabled" {
-			if _, err := vb.ControlVM(vm, "draganddrop"); err != nil {
-				return diag.Errorf("Unable to set draganddrop VM: %s", err.Error())
-			}
-		}
+	}
 
-		// if vm.Spec.Clipboard != "disabled" {
-		// 	if _, err := vb.ControlVM(vm, "clipboard"); err != nil {
-		// 		return diag.Errorf("Unable to set clipboard VM: %s", err.Error())
-		// 	}
-		// }
+	vm.Spec.DragAndDrop = vmConf.DragAndDrop
+	vm.Spec.Clipboard = vmConf.Clipboard
+	if _, err := vb.ControlVM(vm, "draganddrop"); err != nil {
+		return diag.Errorf("Unable to set draganddrop VM: %s", err.Error())
+	}
+
+	if _, err := vb.ControlVM(vm, "clipboard mode"); err != nil {
+		return diag.Errorf("Unable to set clipboard VM: %s", err.Error())
 	}
 
 	return resourceVirtualBoxRead(ctx, d, m)
@@ -401,6 +400,14 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	if err != nil {
 		d.SetId("")
 		return diag.Errorf("VMInfo failed: %s", err.Error())
+	}
+
+	if err := d.Set("drag_and_drop", vm.Spec.DragAndDrop); err != nil {
+		return diag.Errorf("Didn't manage to set drag and drop: %s", err.Error())
+	}
+
+	if err := d.Set("clipboard", vm.Spec.Clipboard); err != nil {
+		return diag.Errorf("Didn't manage to set clipboard: %s", err.Error())
 	}
 
 	// Set state of Machine for Terraform
@@ -543,11 +550,11 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		vm.Spec.DragAndDrop = dragAndDrop
 	}
 
-	// clipboardMode := d.Get("clipboard").(string)
-	// if vm.Spec.DragAndDrop != dragAndDrop {
-	// 	parameters = append(parameters, "clipboard")
-	// 	vm.Spec.Clipboard = clipboardMode
-	// }
+	clipboardMode := d.Get("clipboard").(string)
+	if vm.Spec.Clipboard != clipboardMode {
+		parameters = append(parameters, "clipboard")
+		vm.Spec.Clipboard = clipboardMode
+	}
 
 	// Modify VM
 	if len(parameters) != 0 {
@@ -851,6 +858,36 @@ func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 			error_output = append(error_output, fmt.Sprintf("Not a path in group field, try /%v", group))
 			amountOfProblems++
 		}
+	}
+
+	modes := [4]string{"disabled", "hosttoguest", "guesttohost", "bidirectional"}
+
+	dragAndDrop := d.Get("drag_and_drop").(string)
+	badformat := true
+	for id := range modes {
+		if modes[id] == dragAndDrop {
+			badformat = false
+			break
+		}
+	}
+
+	if badformat {
+		error_output = append(error_output, "Invalid drag_and_drop option, check description.")
+		amountOfProblems++
+	}
+
+	badformat = true
+	clipboard := d.Get("clipboard").(string)
+	for id := range modes {
+		if modes[id] == clipboard {
+			badformat = false
+			break
+		}
+	}
+
+	if badformat {
+		error_output = append(error_output, "Invalid clipboard option, check description.")
+		amountOfProblems++
 	}
 
 	snapshots := d.Get("snapshot.#").(int)
