@@ -24,7 +24,7 @@ type VMConfig struct {
 	Image_path string
 	Dirname    string
 	Ltype      LoadingType
-	Vdi_size   int64
+	DiskSize   int64
 	OS_id      string
 	Group      string
 	Snapshot   vbg.Snapshot
@@ -35,14 +35,14 @@ type VMConfig struct {
 
 func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
-	var vdiDisk string
+	var disk string
 	switch vmCfg.Ltype {
 	case vdiLoading:
-		vdiDisk = vmCfg.Image_path
+		disk = vmCfg.Image_path
 	case imageloading:
-		vdiDisk = filepath.Base(vmCfg.Image_path)
-		vdiDisk = vdiDisk[:len(vdiDisk)-len(filepath.Ext(vdiDisk))] + vmCfg.Name + ".vdi"
-		vdiDisk = filepath.Join(vmCfg.Dirname, vdiDisk)
+		disk = filepath.Base(vmCfg.Image_path)
+		disk = disk[:len(disk)-len(filepath.Ext(disk))] + vmCfg.Name + ".vdi"
+		disk = filepath.Join(vmCfg.Dirname, disk)
 	}
 
 	vb := vbg.NewVBox(vbg.Config{
@@ -62,9 +62,9 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 	}
 
 	disk_VDI := vbg.Disk{
-		Path:       vdiDisk,
-		Format:     vbg.VDI,
-		SizeMB:     vmCfg.Vdi_size,
+		Path:       disk,
+		Format:     vbg.DiskFormat(filepath.Ext(filepath.Base(disk))[1:]),
+		SizeMB:     vmCfg.DiskSize,
 		Type:       "hdd",
 		Controller: sata,
 	}
