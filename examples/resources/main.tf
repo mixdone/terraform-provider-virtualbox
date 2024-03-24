@@ -26,6 +26,18 @@ resource "virtualbox_server" "bad_VM_example" {
 }
 
 
+resource "virtualbox_server" "diskLoad" {
+    count   = 1
+    name    = format("VM_disk_load-%02d", count.index + 1)
+    basedir = format("VM_disk_load-%02d", count.index + 1)
+    cpus    = 1
+    memory  = 512
+    status  = "poweroff"
+    disk    = "/home/mixdone/Desktop/64bit/Fedora 35 (64bit).vmdk"
+ 
+}
+
+
 # resource "virtualbox_server" "bad_VM_example" {
 #     count     = 1
 #     name      = format("VM_without_image-%02d", count.index + 1)
@@ -44,7 +56,7 @@ resource "virtualbox_server" "VM_VDI" {
     memory    = 500
     url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
     status = "poweroff"
-    vdi_size = 25000
+    disk_size = 25000
 }
 
 
@@ -75,11 +87,11 @@ resource "virtualbox_server" "VM_network" {
     status = "poweroff"
 }
 
-# resource "virtualbox_server" "VM_ISO" {
-#     count     = 0
-#     name      = format("VM_ISO-%02d", count.index + 1)
-#     basedir = format("VM_ISO-%02d", count.index + 1)
-#     cpus      = 2
-#     memory    = 500
-#     //image = "C:/Users/vovap/ubuntu-16.04.6-desktop-i386.iso"
-# }
+resource "virtualbox_server" "VM_ISO" {
+    count     = 0
+    name      = format("VM_ISO-%02d", count.index + 1)
+    basedir = format("VM_ISO-%02d", count.index + 1)
+    cpus      = 2
+    memory    = 500
+    image = "C:/Users/vovap/ubuntu-16.04.6-desktop-i386.iso"
+}
