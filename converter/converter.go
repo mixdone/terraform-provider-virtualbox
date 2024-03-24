@@ -184,7 +184,6 @@ func choose_option(options []string) (string, error) {
 }
 
 func check_name(name string) (bool, error) {
-	name = name[1 : len(name)-1]
 	re := regexp.MustCompile(`^[a-z]+[a-z0-9\-]+[a-z0-9]+$`)
 	if !re.MatchString(name) {
 		fmt.Printf(`Invalid name "%s"! The name can contain lowercase Latin letters, numbers, and hyphens. 
@@ -197,9 +196,15 @@ The allowed length is from 2 to 63 characters.\n`, name)
 
 func network_creation(new_config *os.File) (string, error) {
 	var network_name string
-	fmt.Println("Please write a name for the network.")
-	if _, err := fmt.Scan(&network_name); err != nil {
-		return "", err
+	for {
+		fmt.Println("Please write a name for the network.")
+		if _, err := fmt.Scan(&network_name); err != nil {
+			return "", err
+		}
+
+		if ok, _ := check_name(network_name); ok {
+			break
+		}
 	}
 
 	fmt.Fprintf(new_config, "resource \"yandex_vpc_network\" \"%s\" {\n", network_name)
@@ -210,10 +215,16 @@ func network_creation(new_config *os.File) (string, error) {
 
 func subnet_creation(new_config *os.File, network_name string, zone string) (string, error) {
 	var subnet_name string
-	fmt.Println("Please write a name for the subnet.")
-	_, err := fmt.Scan(&subnet_name)
-	if err != nil {
-		return "", err
+	for {
+		fmt.Println("Please write a name for the subnet.")
+		_, err := fmt.Scan(&subnet_name)
+		if err != nil {
+			return "", err
+		}
+
+		if ok, _ := check_name(subnet_name); ok {
+			break
+		}
 	}
 
 	fmt.Fprintf(new_config, "resource \"yandex_vpc_subnet\" \"%s\" {\n", subnet_name)
@@ -262,7 +273,7 @@ func vm_optional_fields(resources map[string]string, new_config *os.File) error 
 
 	name, ok := resources["name"]
 	if ok {
-		ok, err := check_name(name)
+		ok, err := check_name(name[1 : len(name)-1])
 		if ok {
 			fmt.Fprintf(new_config, "\tname = %s\n", name)
 		} else {
@@ -495,7 +506,7 @@ func group_size(general_info map[string]map[string]string, machines []string) (i
 func resource_group(general_info map[string]map[string]string, network_adapters map[string](map[int](map[string]string)),
 	vm_groups map[string][]string, new_config *os.File, yc_images map[string]string, network_name string, subnet_name string, personal_info info) error {
 	for group_name, machines := range vm_groups {
-		ok, err := check_name(group_name)
+		ok, err := check_name(group_name[1 : len(group_name)-1])
 		if !ok {
 			return err
 		}
