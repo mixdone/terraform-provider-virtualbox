@@ -1,44 +1,60 @@
 terraform {
-  required_providers {
-    yandex = {
-      source = "yandex-cloud/yandex"
-    }
-  }
+	required_providers {
+		yandex = {
+			source = "yandex-cloud/yandex"
+		}
+	}
 }
 
 provider "yandex" {
-  token     = "<OAuth_token>"
-  cloud_id  = "<cloud_ID>"
-  folder_id = "<folder_ID>"
-  zone      = "ru-central1-a"
+	token = "token"
+	cloud_id = "cloudID"
+	folder_id = "folderID"
+	zone = "ru-central1-b"
 }
 
 resource "yandex_vpc_network" "network-1" {
-	name =  "network-1"
+	name = "network-1"
 }
 
 resource "yandex_vpc_subnet" "subnet-1" {
-	name =  "subnet-1"
-	v4_cidr_blocks = ["10.0.0.0/28"]
-	zone = "ru-central1-a"
+	name = "subnet-1"
+	v4_cidr_blocks = ["10.0.0.0/22"]
+	zone = "ru-central1-b"
 	network_id = "${yandex_vpc_network.network-1.id}"
 }
 
-resource "yandex_compute_instance" "VM1" {
-	count = 0
-	name = format("VM_without_image-%02d", count.index + 1)
-	boot_disk {
-		initialize_params {
-			image_id = "fd80jfslq61mssea4ejn"
+resource "yandex_compute_instance_group" "man" {
+	name = "man"
+	folder_id = "folderID"
+	service_account_id = "serviceAcc"
+	instance_template {
+		resources {
+			memory = 2
+			cores = 2
+		}
+		boot_disk {
+			initialize_params {
+				image_id = "fd877sidh4gajam1r7vn"
+			}
+		}
+		network_interface {
+			network_id = "${yandex_vpc_network.network-1.id}"
+			subnet_ids = ["${yandex_vpc_subnet.subnet-1.id}"]
+			nat = true
 		}
 	}
-	network_interface {
-		subnet_id = "${yandex_vpc_subnet.subnet-1.id}"
-		nat = true
+	scale_policy {
+		fixed_scale {
+			size = 3
+		}
 	}
-	resources {
-		cores = 3
-		memory = 1
+	allocation_policy {
+		zones = ["ru-central1-b"]
+	}
+	deploy_policy {
+		max_unavailable = 1
+		max_expansion = 1
 	}
 }
 
@@ -55,7 +71,7 @@ resource "yandex_compute_instance" "VM2" {
 		nat = true
 	}
 	resources {
-		cores = 1
+		cores = 2
 		memory = 2
 	}
 }
@@ -64,7 +80,7 @@ resource "yandex_compute_instance" "VM3" {
 	name = "vm3"
 	boot_disk {
 		initialize_params {
-			image_id = "fd898bkh38ssva3kb5td"
+			image_id = "fd8263gk7qeo9om378j1"
 		}
 	}
 	network_interface {
@@ -72,8 +88,8 @@ resource "yandex_compute_instance" "VM3" {
 		nat = true
 	}
 	resources {
-		cores = 1
-		memory = 1
+		cores = 2
+		memory = 2
 	}
 }
 
