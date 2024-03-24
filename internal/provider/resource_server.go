@@ -46,7 +46,7 @@ func resourceVM() *schema.Resource {
 				Default:     128,
 			},
 
-			"vdi_size": {
+			"disk_size": {
 				Description: "VDI size in MB.",
 				Type:        schema.TypeInt,
 				Optional:    true,
@@ -169,7 +169,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.Name = d.Get("name").(string)
 	vmConf.CPUs = d.Get("cpus").(int)
 	vmConf.Memory = d.Get("memory").(int)
-	vmConf.Vdi_size = int64(d.Get("vdi_size").(int))
+	vmConf.DiskSize = int64(d.Get("disk_size").(int))
 	vmConf.OS_id = d.Get("os_id").(string)
 	vmConf.Group = d.Get("group").(string)
 
