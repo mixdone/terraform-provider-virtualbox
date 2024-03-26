@@ -58,19 +58,20 @@ jobs:
       - name: Run functional tests
         run: go test -race -vet=off ./internal/provider
 
-      - name: Prepare env
-        run: 
-         - |
-           mkdir -p ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
-           cp terraform-provider-virtualbox ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
+      - name: Prepare env1
+        run: mkdir -p ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
+           
+      - name: Prepare env2
+        run: cp terraform-provider-virtualbox ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
 
       - name: Download Go Modules
         working-directory: terraform-unit-testing
         run: go mod download
 
-      - name: Run unit tests
+      - name: Run unit test1
         working-directory: terraform-unit-testing
-        run: 
-        - |
-          go test -v vpc_test.go -tags=unit
-          go test -v vm_test.go -tags=unit
+        run: go test -v vpc_test.go -tags=unit
+
+      - name: Run unit test1
+        working-directory: terraform-unit-testing
+        run: go test -v vm_test.go -tags=unit
