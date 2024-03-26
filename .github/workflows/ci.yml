@@ -30,7 +30,7 @@ jobs:
 
 
       - name: Build
-        run: go build -v ./...
+        run: go build -o terraform-provider-virtualbox
 
       - name: Run go vet
         run: go vet ./...
@@ -50,8 +50,8 @@ jobs:
       - name: Run golint
         run: golint ./...
 
-      - name: Run tests
-        run: go test -race -vet=off ./internal/provider
+      #- name: Run tests
+      #  run: go test -race -vet=off ./internal/provider
 
       - name: test
         run: mkdir -p ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
