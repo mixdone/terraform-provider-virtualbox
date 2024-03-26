@@ -1,11 +1,11 @@
 
 resource "virtualbox_server" "VM_without_image" {
-    count     = 0
+    count     = 1
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
     cpus      = 3
     memory    = 1000
-    status = "running"
+    status = "poweroff"
     os_id = "Windows7_64"
 }
 
@@ -37,12 +37,12 @@ resource "virtualbox_server" "bad_VM_example" {
 # }
 
 resource "virtualbox_server" "VM_VDI" {
-    count     = 0
+    count     = 1
     name      = format("VM_VDI-%02d", count.index + 1)
     basedir = format("VM_VDI-%02d", count.index + 1)
     cpus      = 2
     memory    = 500
-    url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+    //url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
     status = "poweroff"
     vdi_size = 25000
 }
@@ -82,4 +82,4 @@ resource "virtualbox_server" "VM_network" {
 #     cpus      = 2
 #     memory    = 500
 #     //image = "C:/Users/vovap/ubuntu-16.04.6-desktop-i386.iso"
-# }
+# }*/
