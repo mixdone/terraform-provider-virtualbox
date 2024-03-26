@@ -7,29 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-/*func TestBadVMExample(t *testing.T) {
-	t.Parallel()
-	terraformOptions := &terraform.Options{
-		TerraformDir: "../examples/resources",
-	}
-
-	defer terraform.Destroy(t, terraformOptions)
-
-	terraform.InitAndApply(t, terraformOptions)
-
-	vmName := terraform.Output(t, terraformOptions, "name_b")
-	vmCPUs := terraform.Output(t, terraformOptions, "cpus")
-	vmMemory := terraform.Output(t, terraformOptions, "memory")
-	vmStatus := terraform.Output(t, terraformOptions, "status")
-	vmOSID := terraform.Output(t, terraformOptions, "os_id")
-
-	assert.Equal(t, "VM_without_image-01", vmName)
-	assert.Equal(t, 30, vmCPUs)
-	assert.Equal(t, 1000000000000, vmMemory)
-	assert.Equal(t, "asdfasdf", vmStatus)
-	assert.Equal(t, "Windows7_64", vmOSID)
-}*/
-
 func TestVirtualMachineCreation2(t *testing.T) {
 	t.Parallel()
 	terraformOptions := &terraform.Options{
