@@ -8,13 +8,6 @@ on:
       - 'docs/**'
       - 'examples/**'
 
-  pull_request:
-    #branches: [main]
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - 'examples/**'
-
 jobs:
 
   audit:
