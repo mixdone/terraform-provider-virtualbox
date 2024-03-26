@@ -1,12 +1,14 @@
 
 resource "virtualbox_server" "VM_without_image" {
-    count     = 0
+    count     = 1
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
     cpus      = 3
     memory    = 1000
     status = "running"
     os_id = "Windows7_64"
+    drag_and_drop = "guesttohost"
+    clipboard = "guesttohost"
 }
 
 resource "virtualbox_server" "bad_VM_example" {
@@ -22,6 +24,13 @@ resource "virtualbox_server" "bad_VM_example" {
     snapshot {
       name = "hello"
       description = "hohohhoho"
+      current = true
+    }
+
+    snapshot {
+      name = "hello2"
+      description = "hohohhoho"
+      
     }
 }
 
@@ -40,7 +49,7 @@ resource "virtualbox_server" "VM_VDI" {
     count     = 0
     name      = format("VM_VDI-%02d", count.index + 1)
     basedir = format("VM_VDI-%02d", count.index + 1)
-    cpus      = 2
+    cpus      = 20000
     memory    = 500
     url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
     status = "poweroff"
@@ -53,26 +62,37 @@ resource "virtualbox_server" "VM_network" {
     count     = 0
     name      = format("VM_network-%02d", count.index + 1)
     basedir = format("VM_network-%02d", count.index + 1)
-    cpus      = 3
-    memory    = 500
+    cpus      = 3000
+    memory    = 50000000000
+
+    status = "fsdjalkjflkdsj"
+    group = "jalskdfj"
 
     network_adapter {
-        network_mode = "nat"
+        network_mode = "adf"
     }
     network_adapter {
-        network_mode = "nat"
-        nic_type = "82540EM"
+        network_mode = "asdfsadf"
+        nic_type = "82jdsjflksjlM"
         cable_connected = true
     }
     network_adapter {
-        network_mode = "hostonly"
+        network_mode = "hostafnly"
     }
     network_adapter {
-        network_mode = "bridged"
+        network_mode = "bridsadfed"
         nic_type = "virtio"
     }
 
-    status = "poweroff"
+    snapshot {
+      name = "hello"
+      description = "eeee"
+    }
+
+    snapshot {
+      name = "hello2"
+      description = "hohoho"
+    }
 }
 
 # resource "virtualbox_server" "VM_ISO" {

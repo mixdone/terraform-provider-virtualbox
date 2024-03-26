@@ -171,6 +171,20 @@ func resourceVM() *schema.Resource {
 				Default:     "Linux_64",
 			},
 
+			"drag_and_drop": {
+				Description: "Set drag_and_drop option (disabled | hosttoguest | guesttohost | bidirectional).",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "disabled",
+			},
+
+			"clipboard": {
+				Description: "Set clipboard option (disabled | hosttoguest | guesttohost | bidirectional).",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "disabled",
+			},
+
 			"snapshot": {
 				Type:        schema.TypeList,
 				Description: "Adds a list of snapshots. You can add a new Snapshot, edit or delete existing ones.",
@@ -187,6 +201,12 @@ func resourceVM() *schema.Resource {
 							Optional: true,
 							Default:  "",
 						},
+
+						"current": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
 					},
 				},
 			},
@@ -196,7 +216,7 @@ func resourceVM() *schema.Resource {
 
 func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	// Geting data from config
-	if err := validateVmParams(d); err != nil {
+	if err := validateVmParams(d, true); err != nil {
 		return diag.Errorf(err.Error())
 	}
 
@@ -208,6 +228,8 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.Vdi_size = int64(d.Get("vdi_size").(int))
 	vmConf.OS_id = d.Get("os_id").(string)
 	vmConf.Group = d.Get("group").(string)
+	vmConf.DragAndDrop = d.Get("drag_and_drop").(string)
+	vmConf.Clipboard = d.Get("clipboard").(string)
 
 	snapshots := d.Get("snapshot.#").(int)
 	if snapshots > 0 {
@@ -283,7 +305,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		nic.Type = "Am79C970A"
 		nic.CableConnected = false
 	}
-	//rule := make([]vbg.PortForwarding, 10)
+	rule := make([]vbg.PortForwarding, 10)
 	nicNumber := d.Get("network_adapter.#").(int)
 
 	for i := 0; i < nicNumber; i++ {
@@ -302,20 +324,21 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		NICs[i].Type = vbg.NICType(currentType)
 		NICs[i].CableConnected = currentCable
 
-		//portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
+		portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
 
-		// for j := 0; j < portForwardingNumber; j++ {
-		// 	currentPF := vbg.PortForwarding{
-		// 		Index:     i,
-		// 		Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
-		// 		Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
-		// 		HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
-		// 		HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
-		// 		GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
-		// 		GuestPort: d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)).(int),
-		// 	}
-		// 	rule = append(rule, currentPF)
-		// }
+		for j := 0; j < portForwardingNumber; j++ {
+			currentPF := vbg.PortForwarding{
+				Index:     i,
+				Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
+				Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
+				HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
+				HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
+				GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
+				GuestPort: d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)).(int),
+			}
+			rule = append(rule, currentPF)
+		}
+		NICs[i].PortForwarding = rule
 	}
 
 	vmConf.Ltype = ltype
@@ -351,6 +374,16 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	vm.Spec.DragAndDrop = vmConf.DragAndDrop
+	vm.Spec.Clipboard = vmConf.Clipboard
+	if _, err := vb.ControlVM(vm, "draganddrop"); err != nil {
+		return diag.Errorf("Unable to set draganddrop VM: %s", err.Error())
+	}
+
+	if _, err := vb.ControlVM(vm, "clipboard mode"); err != nil {
+		return diag.Errorf("Unable to set clipboard VM: %s", err.Error())
+	}
+
 	return resourceVirtualBoxRead(ctx, d, m)
 }
 
@@ -365,16 +398,17 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	vb := vbg.NewVBox(vbg.Config{BasePath: basePath})
 	vm, err := vb.VMInfo(d.Id())
 
-	logrus.Info(vm.Spec.CurrentSnapshot.Name)
-
-	for i := 0; i < len(vm.Spec.Snapshots); i++ {
-		logrus.Info(vm.Spec.Snapshots[i].Name)
-		logrus.Info(vm.Spec.Snapshots[i].Description)
-	}
-
 	if err != nil {
 		d.SetId("")
 		return diag.Errorf("VMInfo failed: %s", err.Error())
+	}
+
+	if err := d.Set("drag_and_drop", vm.Spec.DragAndDrop); err != nil {
+		return diag.Errorf("Didn't manage to set drag and drop: %s", err.Error())
+	}
+
+	if err := d.Set("clipboard", vm.Spec.Clipboard); err != nil {
+		return diag.Errorf("Didn't manage to set clipboard: %s", err.Error())
 	}
 
 	// Set state of Machine for Terraform
@@ -382,26 +416,9 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
 	}
 
-	if err := setNetwork(d, vm); err != nil {
-		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
-	}
-
 	// Set name of Machine for Terraform
 	if err := d.Set("name", vm.Spec.Name); err != nil {
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
-	}
-
-	arr := make([]map[string]interface{}, 0, 3)
-
-	for i := 0; i < len(vm.Spec.Snapshots); i++ {
-		arr = append(arr, map[string]interface{}{
-			"name":        vm.Spec.Snapshots[i].Name,
-			"description": vm.Spec.Snapshots[i].Description,
-		})
-	}
-
-	if err := d.Set("snapshot", arr); err != nil {
-		return diag.Errorf("Didn't manage to set snapshot: %s", err.Error())
 	}
 
 	// Set CPUs amount for Terraform
@@ -414,6 +431,16 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("Didn't manage to set memory: %s", err.Error())
 	}
 
+	// Set network for Terraform
+	if err := setNetwork(d, vm); err != nil {
+		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
+	}
+
+	// Set snapshots for Terraform
+	if err := setSnapshots(d, vm); err != nil {
+		return diag.Errorf("Didn't manage to set snapshots: %s", err.Error())
+	}
+
 	// Set basedir VM for Terraform
 	if err := d.Set("basedir", d.Get("basedir").(string)); err != nil {
 		return diag.Errorf("Didn't manage to set basedir: %s", err.Error())
@@ -422,23 +449,8 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	return nil
 }
 
-func poweroffVM(ctx context.Context, d *schema.ResourceData, vm *vbg.VirtualMachine, vb *vbg.VBox) error {
-	switch vm.Spec.State {
-	case vbg.Poweroff, vbg.Aborted, vbg.Saved:
-		return nil
-	}
-
-	if _, err := vb.ControlVM(vm, "poweroff"); err != nil {
-		logrus.Errorf("Unable to poweroff VM: %s", err.Error())
-		return err
-	}
-
-	vm.Spec.State = vbg.Poweroff
-	return nil
-}
-
 func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	if err := validateVmParams(d); err != nil {
+	if err := validateVmParams(d, false); err != nil {
 		return diag.Errorf(err.Error())
 	}
 
@@ -455,7 +467,7 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	// Powerof VM
-	if err = poweroffVM(ctx, d, vm, vb); err != nil {
+	if err = poweroffVM(vm, vb); err != nil {
 		return diag.Errorf("Setting state failed: %s", err.Error())
 	}
 
@@ -522,6 +534,44 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 			needAppendNetwork = true
 			vm.Spec.NICs[i].CableConnected = currentCable
 		}
+
+		nic := vm.Spec.NICs[i]
+		for j := 0; j < len(nic.PortForwarding); j++ {
+			requestName := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)
+			currentName := d.Get(requestName).(string)
+			if currentName != nic.PortForwarding[j].Name {
+				needAppendNetwork = true
+				nic.PortForwarding[j].Name = currentName
+			}
+
+			requestHostIp := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)
+			currentHostIp := d.Get(requestHostIp).(string)
+			if currentHostIp != nic.PortForwarding[j].HostIP {
+				needAppendNetwork = true
+				nic.PortForwarding[j].HostIP = currentHostIp
+			}
+
+			requestHostPort := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)
+			currentHostPort := d.Get(requestHostPort).(int)
+			if currentHostPort != nic.PortForwarding[j].HostPort {
+				needAppendNetwork = true
+				nic.PortForwarding[j].HostPort = currentHostPort
+			}
+
+			requestGuestIp := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)
+			currentGuestIp := d.Get(requestGuestIp).(string)
+			if currentGuestIp != nic.PortForwarding[j].GuestIP {
+				needAppendNetwork = true
+				nic.PortForwarding[j].GuestIP = currentGuestIp
+			}
+
+			requestGuestPort := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)
+			currentGuestPort := d.Get(requestGuestPort).(int)
+			if currentGuestPort != nic.PortForwarding[j].GuestPort {
+				needAppendNetwork = true
+				nic.PortForwarding[j].GuestPort = currentGuestPort
+			}
+		}
 	}
 	if needAppendNetwork {
 		parameters = append(parameters, "network_adapter")
@@ -531,6 +581,18 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 	if vm.Spec.Group != group {
 		parameters = append(parameters, "group")
 		vm.Spec.Group = group
+	}
+
+	dragAndDrop := d.Get("drag_and_drop").(string)
+	if vm.Spec.DragAndDrop != dragAndDrop {
+		parameters = append(parameters, "drag_and_drop")
+		vm.Spec.DragAndDrop = dragAndDrop
+	}
+
+	clipboardMode := d.Get("clipboard").(string)
+	if vm.Spec.Clipboard != clipboardMode {
+		parameters = append(parameters, "clipboard")
+		vm.Spec.Clipboard = clipboardMode
 	}
 
 	// Modify VM
@@ -569,13 +631,20 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		vm.Spec.Snapshots = append(vm.Spec.Snapshots, emptySnapshts...)
 	}
 
+	var currentSnap vbg.Snapshot
+
 	for i := 0; i < snapshots; i++ {
 		var snapshot vbg.Snapshot
 		req1 := fmt.Sprintf("snapshot.%d.name", i)
 		req2 := fmt.Sprintf("snapshot.%d.description", i)
+		req3 := fmt.Sprintf("snapshot.%d.current", i)
 
 		snapshot.Name = d.Get(req1).(string)
 		snapshot.Description = d.Get(req2).(string)
+		current := d.Get(req3).(bool)
+		if current {
+			currentSnap = snapshot
+		}
 
 		if vm.Spec.Snapshots[i].Name == "" {
 			snapshotOperationsHandler(vb, vm, vm.Spec.Snapshots[i], snapshot, "take", status)
@@ -591,7 +660,78 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	if currentSnap.Name != "" {
+		if err := vb.RestoreSnapshot(vm, currentSnap); err != nil {
+			return diag.Errorf("Snapshot restore failed: %s", err.Error())
+		}
+	}
+
 	return resourceVirtualBoxRead(ctx, d, m)
+}
+
+func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
+	vb := vbg.NewVBox(vbg.Config{})
+	_, err := vb.VMInfo(d.Id())
+	switch err {
+	case nil:
+		return true, nil
+	case vbg.ErrMachineNotExist:
+		return false, nil
+	default:
+		return false, fmt.Errorf("VMInfo failed: %s", err)
+	}
+}
+
+func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	// Getting VM by id
+	homedir, err := os.UserHomeDir()
+	if err != nil {
+		return diag.Errorf("userhomedir failed: %s", err.Error())
+	}
+
+	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
+	vm, err := vb.VMInfo(d.Id())
+	if err != nil {
+		return diag.Errorf("VMInfo failed: %s", err.Error())
+	}
+
+	// Powerof VM
+	if err = poweroffVM(vm, vb); err != nil {
+		return diag.Errorf("Setting state failed: %s", err.Error())
+	}
+
+	// Unresitering VM
+	if err = vb.UnRegisterVM(vm); err != nil {
+		return diag.Errorf("VM Unregister failed: %s", err.Error())
+	}
+
+	// VM deletion
+	if err = vb.DeleteVM(vm); err != nil {
+		return diag.Errorf("VM deletion failed: %s", err.Error())
+	}
+
+	// Delete machine folder
+	machineDir := filepath.Join(homedir, d.Get("basedir").(string))
+	if err := os.RemoveAll(machineDir); err != nil {
+		return diag.Errorf("Can't clear the data: %s", err.Error())
+	}
+
+	return nil
+}
+
+func poweroffVM(vm *vbg.VirtualMachine, vb *vbg.VBox) error {
+	switch vm.Spec.State {
+	case vbg.Poweroff, vbg.Aborted, vbg.Saved:
+		return nil
+	}
+
+	if _, err := vb.ControlVM(vm, "poweroff"); err != nil {
+		logrus.Errorf("Unable to poweroff VM: %s", err.Error())
+		return err
+	}
+
+	vm.Spec.State = vbg.Poweroff
+	return nil
 }
 
 func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, prevSnapshot vbg.Snapshot, snapshot vbg.Snapshot, operation string, status string) error {
@@ -623,56 +763,6 @@ func snapshotOperationsHandler(vb *vbg.VBox, vm *vbg.VirtualMachine, prevSnapsho
 	}
 }
 
-func resourceVirtualBoxExists(d *schema.ResourceData, m interface{}) (bool, error) {
-	vb := vbg.NewVBox(vbg.Config{})
-	_, err := vb.VMInfo(d.Id())
-	switch err {
-	case nil:
-		return true, nil
-	case vbg.ErrMachineNotExist:
-		return false, nil
-	default:
-		return false, fmt.Errorf("VMInfo failed: %s", err)
-	}
-}
-
-func resourceVirtualBoxDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	// Getting VM by id
-	homedir, err := os.UserHomeDir()
-	if err != nil {
-		return diag.Errorf("userhomedir failed: %s", err.Error())
-	}
-
-	vb := vbg.NewVBox(vbg.Config{BasePath: filepath.Join(homedir, d.Get("basedir").(string))})
-	vm, err := vb.VMInfo(d.Id())
-	if err != nil {
-		return diag.Errorf("VMInfo failed: %s", err.Error())
-	}
-
-	// Powerof VM
-	if err = poweroffVM(ctx, d, vm, vb); err != nil {
-		return diag.Errorf("Setting state failed: %s", err.Error())
-	}
-
-	// Unresitering VM
-	if err = vb.UnRegisterVM(vm); err != nil {
-		return diag.Errorf("VM Unregister failed: %s", err.Error())
-	}
-
-	// VM deletion
-	if err = vb.DeleteVM(vm); err != nil {
-		return diag.Errorf("VM deletion failed: %s", err.Error())
-	}
-
-	// Delete machine folder
-	machineDir := filepath.Join(homedir, d.Get("basedir").(string))
-	if err := os.RemoveAll(machineDir); err != nil {
-		return diag.Errorf("Can't clear the data: %s", err.Error())
-	}
-
-	return nil
-}
-
 func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 	var err error
 	switch vm.Spec.State {
@@ -688,6 +778,33 @@ func setState(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		err = d.Set("status", "aborted")
 	}
 	return err
+}
+
+func setSnapshots(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
+	arr := make([]map[string]interface{}, 0, 3)
+
+	for i := 0; i < len(vm.Spec.Snapshots); i++ {
+		if vm.Spec.Snapshots[i].Name == vm.Spec.CurrentSnapshot.Name &&
+			vm.Spec.Snapshots[i].Description == vm.Spec.CurrentSnapshot.Description {
+			arr = append(arr, map[string]interface{}{
+				"name":        vm.Spec.Snapshots[i].Name,
+				"description": vm.Spec.Snapshots[i].Description,
+				"current":     true,
+			})
+		} else {
+			arr = append(arr, map[string]interface{}{
+				"name":        vm.Spec.Snapshots[i].Name,
+				"description": vm.Spec.Snapshots[i].Description,
+				"current":     false,
+			})
+		}
+
+	}
+
+	if err := d.Set("snapshot", arr); err != nil {
+		return fmt.Errorf("%s", err.Error())
+	}
+	return nil
 }
 
 func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
@@ -733,6 +850,13 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		}
 	}
 
+	//velociped
+	if len(vm.Spec.NICs) == 1 {
+		if vm.Spec.NICs[0].Mode == "nat" && vm.Spec.NICs[0].Type == "82540EM" {
+			return nil
+		}
+	}
+
 	nics := make([]map[string]any, 0, 4)
 	for i, nic := range vm.Spec.NICs {
 		out := make(map[string]any)
@@ -740,6 +864,24 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		out["network_mode"] = getMode(nic)
 		out["nic_type"] = getType(nic)
 		out["cable_connected"] = nic.CableConnected
+		rules := make([]map[string]any, 0, 3)
+		for i := 0; i < len(nic.PortForwarding); i++ {
+			protocol := "tcp"
+			if nic.PortForwarding[i].Protocol == vbg.UDP {
+				protocol = "udp"
+			}
+
+			rules = append(rules, map[string]any{
+				"name":      nic.PortForwarding[i].Name,
+				"protocol":  protocol,
+				"hostip":    nic.PortForwarding[i].HostIP,
+				"hostport":  nic.PortForwarding[i].HostPort,
+				"guestip":   nic.PortForwarding[i].GuestIP,
+				"guestport": nic.PortForwarding[i].GuestPort,
+			})
+		}
+		out["port_forwarding"] = rules
+
 		nics = append(nics, out)
 	}
 
@@ -750,7 +892,7 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 	return nil
 }
 
-func validateVmParams(d *schema.ResourceData) error {
+func validateVmParams(d *schema.ResourceData, isCreate bool) error {
 	amountOfProblems := 0
 	var error_output []string
 
@@ -763,6 +905,63 @@ func validateVmParams(d *schema.ResourceData) error {
 	memory := d.Get("memory").(int)
 	if memory <= 0 || memory > int(mem.TotalMemory()) {
 		error_output = append(error_output, fmt.Sprintf("Set the amount of memory according to the following limits: 1 - %v", mem.TotalMemory()))
+		amountOfProblems++
+	}
+
+	val, ok := d.GetOk("group")
+	if ok {
+		group := val.(string)
+		if group != "" && group[0] != '/' && group[0] != '\\' {
+			error_output = append(error_output, fmt.Sprintf("Not a path in group field, try /%v", group))
+			amountOfProblems++
+		}
+	}
+
+	modes := [4]string{"disabled", "hosttoguest", "guesttohost", "bidirectional"}
+
+	dragAndDrop := d.Get("drag_and_drop").(string)
+	badformat := true
+	for id := range modes {
+		if modes[id] == dragAndDrop {
+			badformat = false
+			break
+		}
+	}
+
+	if badformat {
+		error_output = append(error_output, "Invalid drag_and_drop option, check description.")
+		amountOfProblems++
+	}
+
+	badformat = true
+	clipboard := d.Get("clipboard").(string)
+	for id := range modes {
+		if modes[id] == clipboard {
+			badformat = false
+			break
+		}
+	}
+
+	if badformat {
+		error_output = append(error_output, "Invalid clipboard option, check description.")
+		amountOfProblems++
+	}
+
+	snapshots := d.Get("snapshot.#").(int)
+	if isCreate && snapshots > 1 {
+		error_output = append(error_output, "Too many snapshots for a new VM")
+		amountOfProblems++
+	}
+
+	counter := 0
+	for i := 0; i < snapshots; i++ {
+		req1 := fmt.Sprintf("snapshot.%d.current", i)
+		if d.Get(req1).(bool) {
+			counter++
+		}
+	}
+	if counter > 1 {
+		error_output = append(error_output, "Only one snapshot can be current")
 		amountOfProblems++
 	}
 
@@ -779,15 +978,99 @@ func validateVmParams(d *schema.ResourceData) error {
 	case "aborted":
 		break
 	default:
-		error_output = append(error_output, "Status does not match any of the existing ones\n - poweroff\n - runnning\n - paused \n - saved \n - aborted")
+		error_output = append(error_output, "Status does not match any of the existing ones\n\t- poweroff\n\t- runnning\n\t- paused \n\t- saved \n\t- aborted")
 		amountOfProblems++
+	}
+
+	checkMode := func(nicMode string) error {
+		switch nicMode {
+		case "none":
+			return nil
+		case "null":
+			return nil
+		case "nat":
+			return nil
+		case "natnetwork":
+			return nil
+		case "bridged":
+			return nil
+		case "intnet":
+			return nil
+		case "hostonly":
+			return nil
+		case "generic":
+			return nil
+		default:
+			return fmt.Errorf("mode does not match any of the existing ones")
+		}
+	}
+	checkType := func(nicType string) error {
+		switch nicType {
+		case "Am79C970A":
+			return nil
+		case "Am79C973":
+			return nil
+		case "82540EM":
+			return nil
+		case "82543GC":
+			return nil
+		case "82545EM":
+			return nil
+		case "virtio":
+			return nil
+		default:
+			return fmt.Errorf("type does not match any of the existing ones")
+		}
+	}
+
+	amountOfNICs := d.Get("network_adapter.#").(int)
+	var err error
+	badNICsMode := false
+	badNICsType := false
+	allNICReports := "\n"
+
+	for i := 0; i < amountOfNICs; i++ {
+		nicReport := fmt.Sprintf("  NIC %d:\n", i)
+		badFormat := false
+
+		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
+		currentMode := d.Get(requestMode).(string)
+		if err = checkMode(currentMode); err != nil {
+			nicReport += fmt.Sprintf("\t%s\n", err)
+			badFormat = true
+			badNICsMode = true
+		}
+
+		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
+		currentType := d.Get(requestType).(string)
+		if err = checkType(currentType); err != nil {
+			nicReport += fmt.Sprintf("\t%s\n", err)
+			badFormat = true
+			badNICsType = true
+		}
+
+		if badFormat {
+			allNICReports += nicReport + "\n"
+		}
+	}
+
+	if badNICsMode || badNICsType {
+		if badNICsMode {
+			allNICReports += "\n  NIC modes:\n\t- none\n\t- null\n\t- nat\n\t- natnetwork\n\t- bridget\n\t- intnet\n\t- hostonly\n\t- generic\n"
+		}
+
+		if badNICsType {
+			allNICReports += "\n  NIC types:\n\t- Am79C970A\n\t- Am79C970A\n\t- 82540EM\n\t- 82543GC\n\t- 82545EM\n\t- virtio\n"
+		}
+		amountOfProblems++
+		error_output = append(error_output, allNICReports)
 	}
 
 	if amountOfProblems == 0 {
 		return nil
 	}
 
-	report := "\n"
+	report := fmt.Sprintf("VM: %v\n", d.Get("name").(string))
 	for i := 1; i <= amountOfProblems; i++ {
 		report += fmt.Sprintf("%v) %s\n", i, error_output[i-1])
 	}
