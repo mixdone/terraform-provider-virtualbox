@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -159,7 +160,6 @@ func select_config() (string, error) {
 				break
 			}
 		}
-		fmt.Println(config)
 		return config, nil
 	}
 }
@@ -188,7 +188,7 @@ func check_name(name string) (bool, error) {
 	if !re.MatchString(name) {
 		fmt.Printf(`Invalid name "%s"! The name can contain lowercase Latin letters, numbers, and hyphens. 
 The first character must be a letter. The last character must not be a hyphen. 
-The allowed length is from 2 to 63 characters.\n`, name)
+The allowed length is from 2 to 63 characters.`+"\n", name)
 		return false, ErrInvalidName
 	}
 	return true, nil
@@ -279,6 +279,11 @@ func vm_optional_fields(resources map[string]string, new_config *os.File) error 
 		} else {
 			return err
 		}
+	}
+
+	folder_name, ok := resources["basedir"]
+	if ok {
+		fmt.Fprintf(new_config, "\tfolder_id = \"${yandex_resourcemanager_folder.%s.id}\"\n", folder_name[1:len(folder_name)-1])
 	}
 	return nil
 }
@@ -542,9 +547,26 @@ func resource_group(general_info map[string]map[string]string, network_adapters 
 		fmt.Fprintf(new_config, "\t\tzones = [\"%s\"]\n", personal_info.zone)
 		fmt.Fprintln(new_config, "\t}")
 		fmt.Fprintln(new_config, "\tdeploy_policy {\n\t\tmax_unavailable = 1\n\t\tmax_expansion = 1\n\t}")
-		fmt.Fprintln(new_config, "}\n")
+		fmt.Fprint(new_config, "}\n\n")
 	}
 	return nil
+}
+
+func folder_creation(created_folders []string, folder_name string, new_config *os.File) ([]string, error) {
+	if folder_name[0] == '"' && folder_name[len(folder_name)-1] == '"' {
+		folder_name = folder_name[1 : len(folder_name)-1]
+	}
+	if found := slices.Contains(created_folders, folder_name); !found {
+		ok, err := check_name(folder_name)
+		if !ok {
+			return created_folders, err
+		}
+		fmt.Fprintf(new_config, "resource \"yandex_resourcemanager_folder\" \"%s\" {\n", folder_name)
+		fmt.Fprintf(new_config, "\tname = \"%s\"\n", folder_name)
+		fmt.Fprint(new_config, "}\n\n")
+		created_folders = append(created_folders, folder_name)
+	}
+	return created_folders, nil
 }
 
 func resource_vm(reference_name string, resources map[string]string, network_adapters map[string](map[int](map[string]string)),
@@ -581,8 +603,20 @@ func conversion_of_resources(general_info map[string]map[string]string, network_
 			log.Fatalf("Error with resource group: %s", err.Error())
 		}
 	}
+
+	created_folders := make([]string, 0, 1)
+	var err error
 	for reference_name, resources := range general_info {
 		if _, ok := resources["group"]; !ok {
+			folder_name, ok := resources["basedir"]
+			if ok {
+				created_folders, err = folder_creation(created_folders, folder_name, new_config)
+				if err != nil {
+					new_config.Close()
+					os.Remove("yandex_cloud.tf")
+					log.Fatalf("Error with folder creation: %s", err.Error())
+				}
+			}
 			if err := resource_vm(reference_name, resources, network_adapters, new_config, yc_images, subnet_name); err != nil {
 				new_config.Close()
 				os.Remove("yandex_cloud.tf")
@@ -594,7 +628,7 @@ func conversion_of_resources(general_info map[string]map[string]string, network_
 
 func get_personal_info(new_config *os.File) (info, error) {
 	var personal_info info
-	fmt.Fprintln(new_config, "terraform {\n\trequired_providers {\n\t\tyandex = {\n\t\t\tsource = \"yandex-cloud/yandex\"\n\t\t}\n\t}\n}\n")
+	fmt.Fprint(new_config, "terraform {\n\trequired_providers {\n\t\tyandex = {\n\t\t\tsource = \"yandex-cloud/yandex\"\n\t\t}\n\t}\n}\n\n")
 	fmt.Fprintln(new_config, "provider \"yandex\" {")
 	fmt.Println("Please write security token or IAM token used for authentication in Yandex.Cloud.")
 	if _, err := fmt.Scan(&personal_info.OAuth_token); err != nil {
@@ -622,7 +656,7 @@ func get_personal_info(new_config *os.File) (info, error) {
 		}
 	}
 	fmt.Fprintf(new_config, "\tzone = \"%s\"\n", personal_info.zone)
-	fmt.Fprintln(new_config, "}\n")
+	fmt.Fprint(new_config, "}\n\n")
 	return personal_info, nil
 }
 

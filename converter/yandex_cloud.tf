@@ -9,7 +9,7 @@ terraform {
 provider "yandex" {
 	token = "token"
 	cloud_id = "cloudID"
-	folder_id = "folderID"
+	folder_id = "folderId"
 	zone = "ru-central1-b"
 }
 
@@ -26,7 +26,7 @@ resource "yandex_vpc_subnet" "subnet-1" {
 
 resource "yandex_compute_instance_group" "man" {
 	name = "man"
-	folder_id = "folderID"
+	folder_id = "folderId"
 	service_account_id = "serviceAcc"
 	instance_template {
 		resources {
@@ -35,7 +35,7 @@ resource "yandex_compute_instance_group" "man" {
 		}
 		boot_disk {
 			initialize_params {
-				image_id = "fd877sidh4gajam1r7vn"
+				image_id = "fd89ovh4ticpo40dkbvd"
 			}
 		}
 		network_interface {
@@ -58,9 +58,14 @@ resource "yandex_compute_instance_group" "man" {
 	}
 }
 
+resource "yandex_resourcemanager_folder" "folder1" {
+	name = "folder1"
+}
+
 resource "yandex_compute_instance" "VM2" {
 	count = 1
 	name = "vm2"
+	folder_id = "${yandex_resourcemanager_folder.folder1.id}"
 	boot_disk {
 		initialize_params {
 			image_id = "fd833q45aucu0afdc2vj"
@@ -76,11 +81,35 @@ resource "yandex_compute_instance" "VM2" {
 	}
 }
 
+resource "yandex_resourcemanager_folder" "folder2" {
+	name = "folder2"
+}
+
 resource "yandex_compute_instance" "VM3" {
 	name = "vm3"
+	folder_id = "${yandex_resourcemanager_folder.folder2.id}"
 	boot_disk {
 		initialize_params {
-			image_id = "fd8263gk7qeo9om378j1"
+			image_id = "fd82ubnc7m4sjoi9tssk"
+		}
+	}
+	network_interface {
+		subnet_id = "${yandex_vpc_subnet.subnet-1.id}"
+		nat = true
+	}
+	resources {
+		cores = 2
+		memory = 2
+	}
+}
+
+resource "yandex_compute_instance" "VM5" {
+	count = 2
+	name = "vm5"
+	folder_id = "${yandex_resourcemanager_folder.folder2.id}"
+	boot_disk {
+		initialize_params {
+			image_id = "fd81v7g3b2g481h03tsp"
 		}
 	}
 	network_interface {

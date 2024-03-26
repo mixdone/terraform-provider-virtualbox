@@ -1,7 +1,7 @@
 resource "virtualbox_server" "VM1" {
     count = 1
-    name      = format("VM_without_image-%02d", count.index + 1)
-    basedir = format("VM1-%02d", count.index + 1)
+    name      = "vm1"
+    basedir = "folder1"
     cpus      = 2
     memory    = 100
     status = "running"
@@ -13,7 +13,7 @@ resource "virtualbox_server" "VM1" {
 resource "virtualbox_server" "VM2" {
     name      = "vm2"
     count = 1
-    basedir = format("VM2-%02d", count.index + 1)
+    basedir = "folder1"
     cpus      = 1
     memory    = 2000
     status = "poweroff"
@@ -38,7 +38,7 @@ resource "virtualbox_server" "VM2" {
 
 resource "virtualbox_server" "VM3" {
     name      = "vm3"
-    basedir = format("VM3-%02d", count.index + 1)
+    basedir = "folder2"
     cpus      = 1
     memory    = 1000
     os_id = "Fedora_64"
@@ -47,8 +47,7 @@ resource "virtualbox_server" "VM3" {
 
 resource "virtualbox_server" "VM4" {
     count = 2
-    name      = format("VM_without_image-%02d", count.index + 1)
-    basedir = format("VM1-%02d", count.index + 1)
+    name      = "vm4"
     cpus      = 1
     memory    = 1000
     status = "running"
@@ -61,4 +60,13 @@ resource "virtualbox_server" "VM4" {
     }
 }
 
+resource "virtualbox_server" "VM5" {
+    count = 2
+    name      = "vm5"
+    basedir = "folder2"
+    cpus      = 1
+    memory    = 1000
+    status = "running"
+    os_id = "Linux_64"
+}
 
