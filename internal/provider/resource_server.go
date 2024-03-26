@@ -305,7 +305,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		nic.Type = "Am79C970A"
 		nic.CableConnected = false
 	}
-	//rule := make([]vbg.PortForwarding, 10)
+	rule := make([]vbg.PortForwarding, 10)
 	nicNumber := d.Get("network_adapter.#").(int)
 
 	for i := 0; i < nicNumber; i++ {
@@ -324,20 +324,21 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		NICs[i].Type = vbg.NICType(currentType)
 		NICs[i].CableConnected = currentCable
 
-		//portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
+		portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
 
-		// for j := 0; j < portForwardingNumber; j++ {
-		// 	currentPF := vbg.PortForwarding{
-		// 		Index:     i,
-		// 		Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
-		// 		Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
-		// 		HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
-		// 		HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
-		// 		GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
-		// 		GuestPort: d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)).(int),
-		// 	}
-		// 	rule = append(rule, currentPF)
-		// }
+		for j := 0; j < portForwardingNumber; j++ {
+			currentPF := vbg.PortForwarding{
+				Index:     i,
+				Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
+				Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
+				HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
+				HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
+				GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
+				GuestPort: d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)).(int),
+			}
+			rule = append(rule, currentPF)
+		}
+		NICs[i].PortForwarding = rule
 	}
 
 	vmConf.Ltype = ltype
@@ -532,6 +533,44 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		if currentCable != vm.Spec.NICs[i].CableConnected {
 			needAppendNetwork = true
 			vm.Spec.NICs[i].CableConnected = currentCable
+		}
+
+		nic := vm.Spec.NICs[i]
+		for j := 0; j < len(nic.PortForwarding); j++ {
+			requestName := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)
+			currentName := d.Get(requestName).(string)
+			if currentName != nic.PortForwarding[j].Name {
+				needAppendNetwork = true
+				nic.PortForwarding[j].Name = currentName
+			}
+
+			requestHostIp := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)
+			currentHostIp := d.Get(requestHostIp).(string)
+			if currentHostIp != nic.PortForwarding[j].HostIP {
+				needAppendNetwork = true
+				nic.PortForwarding[j].HostIP = currentHostIp
+			}
+
+			requestHostPort := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)
+			currentHostPort := d.Get(requestHostPort).(int)
+			if currentHostPort != nic.PortForwarding[j].HostPort {
+				needAppendNetwork = true
+				nic.PortForwarding[j].HostPort = currentHostPort
+			}
+
+			requestGuestIp := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)
+			currentGuestIp := d.Get(requestGuestIp).(string)
+			if currentGuestIp != nic.PortForwarding[j].GuestIP {
+				needAppendNetwork = true
+				nic.PortForwarding[j].GuestIP = currentGuestIp
+			}
+
+			requestGuestPort := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)
+			currentGuestPort := d.Get(requestGuestPort).(int)
+			if currentGuestPort != nic.PortForwarding[j].GuestPort {
+				needAppendNetwork = true
+				nic.PortForwarding[j].GuestPort = currentGuestPort
+			}
 		}
 	}
 	if needAppendNetwork {
@@ -825,6 +864,24 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		out["network_mode"] = getMode(nic)
 		out["nic_type"] = getType(nic)
 		out["cable_connected"] = nic.CableConnected
+		rules := make([]map[string]any, 0, 3)
+		for i := 0; i < len(nic.PortForwarding); i++ {
+			protocol := "tcp"
+			if nic.PortForwarding[i].Protocol == vbg.UDP {
+				protocol = "udp"
+			}
+
+			rules = append(rules, map[string]any{
+				"name":      nic.PortForwarding[i].Name,
+				"protocol":  protocol,
+				"hostip":    nic.PortForwarding[i].HostIP,
+				"hostport":  nic.PortForwarding[i].HostPort,
+				"guestip":   nic.PortForwarding[i].GuestIP,
+				"guestport": nic.PortForwarding[i].GuestPort,
+			})
+		}
+		out["port_forwarding"] = rules
+
 		nics = append(nics, out)
 	}
 
