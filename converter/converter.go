@@ -184,7 +184,7 @@ func choose_option(options []string) (string, error) {
 }
 
 func check_name(name string) (bool, error) {
-	re := regexp.MustCompile(`^[a-z]+[a-z0-9\-]+[a-z0-9]+$`)
+	re := regexp.MustCompile(`^[a-z]+[a-z0-9\-]*[a-z0-9]+$`)
 	if !re.MatchString(name) {
 		fmt.Printf(`Invalid name "%s"! The name can contain lowercase Latin letters, numbers, and hyphens. 
 The first character must be a letter. The last character must not be a hyphen. 
@@ -430,7 +430,9 @@ func group_resource_boot_disk(machines []string, general_info map[string]map[str
 		if !ok {
 			return ErrOsIdNotDefined
 		}
-		systems = append(systems, vb_os_id)
+		if !slices.Contains(systems, vb_os_id) {
+			systems = append(systems, vb_os_id)
+		}
 	}
 
 	var system string
