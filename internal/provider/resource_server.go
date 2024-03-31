@@ -305,7 +305,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		nic.Type = "Am79C970A"
 		nic.CableConnected = false
 	}
-	rule := make([]vbg.PortForwarding, 10)
+	rule := make([]vbg.PortForwarding, 0, 10)
 	nicNumber := d.Get("network_adapter.#").(int)
 
 	for i := 0; i < nicNumber; i++ {
@@ -327,10 +327,16 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
 
 		for j := 0; j < portForwardingNumber; j++ {
+			protocol := vbg.TCP
+			if d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(string) == "udp" {
+				protocol = vbg.UDP
+			}
+
 			currentPF := vbg.PortForwarding{
-				Index:     i,
+				NicIndex:  i + 1,
+				Index:     i + 1,
 				Name:      d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)).(string),
-				Protocol:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)).(vbg.NetProtocol),
+				Protocol:  protocol,
 				HostIP:    d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)).(string),
 				HostPort:  d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)).(int),
 				GuestIP:   d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)).(string),
@@ -338,7 +344,6 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 			}
 			rule = append(rule, currentPF)
 		}
-		NICs[i].PortForwarding = rule
 	}
 
 	vmConf.Ltype = ltype
@@ -363,6 +368,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	status := d.Get("status").(string)
+
+	if err := vb.AddALlPortForw(vm, rule); err != nil {
+		return diag.Errorf("Unable to set all port forwardings: %s", err.Error())
+	}
 
 	if status != "poweroff" {
 		if _, err := vb.ControlVM(vm, status); err != nil {
@@ -505,6 +514,10 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 
 	// Setting new network adapters
 	needAppendNetwork := false
+	needChangeRules := false
+	deleteForwardingList := make([]vbg.PortForwarding, 0, 10)
+	addNewForwardingList := make([]vbg.PortForwarding, 0, 10)
+
 	nicNumber := d.Get("network_adapter.#").(int)
 
 	if len(vm.Spec.NICs) < nicNumber {
@@ -535,44 +548,68 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 			vm.Spec.NICs[i].CableConnected = currentCable
 		}
 
+		ruleNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
+		amountOfRulesInVM := len(vm.Spec.NICs[i].PortForwarding)
+		if len(vm.Spec.NICs[i].PortForwarding) < ruleNumber {
+			var rules = make([]vbg.PortForwarding, ruleNumber-len(vm.Spec.NICs[i].PortForwarding))
+			vm.Spec.NICs[i].PortForwarding = append(vm.Spec.NICs[i].PortForwarding, rules...)
+		}
+
 		nic := vm.Spec.NICs[i]
-		for j := 0; j < len(nic.PortForwarding); j++ {
+
+		for j := 0; j < ruleNumber; j++ {
 			requestName := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.name", i, j)
-			currentName := d.Get(requestName).(string)
-			if currentName != nic.PortForwarding[j].Name {
-				needAppendNetwork = true
-				nic.PortForwarding[j].Name = currentName
-			}
-
 			requestHostIp := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostip", i, j)
-			currentHostIp := d.Get(requestHostIp).(string)
-			if currentHostIp != nic.PortForwarding[j].HostIP {
-				needAppendNetwork = true
-				nic.PortForwarding[j].HostIP = currentHostIp
-			}
-
 			requestHostPort := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.hostport", i, j)
-			currentHostPort := d.Get(requestHostPort).(int)
-			if currentHostPort != nic.PortForwarding[j].HostPort {
-				needAppendNetwork = true
-				nic.PortForwarding[j].HostPort = currentHostPort
-			}
-
 			requestGuestIp := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestip", i, j)
+			requestGuestPort := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)
+			requestProtocol := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.protocol", i, j)
+
+			currentName := d.Get(requestName).(string)
+			currentHostIp := d.Get(requestHostIp).(string)
+			currentHostPort := d.Get(requestHostPort).(int)
 			currentGuestIp := d.Get(requestGuestIp).(string)
-			if currentGuestIp != nic.PortForwarding[j].GuestIP {
-				needAppendNetwork = true
-				nic.PortForwarding[j].GuestIP = currentGuestIp
+			currentGuestPort := d.Get(requestGuestPort).(int)
+			val := d.Get(requestProtocol).(string)
+			currentProtocol := vbg.TCP
+			if val == "udp" {
+				currentProtocol = vbg.UDP
 			}
 
-			requestGuestPort := fmt.Sprintf("network_adapter.%d.port_forwarding.%d.guestport", i, j)
-			currentGuestPort := d.Get(requestGuestPort).(int)
-			if currentGuestPort != nic.PortForwarding[j].GuestPort {
-				needAppendNetwork = true
-				nic.PortForwarding[j].GuestPort = currentGuestPort
+			if currentName != nic.PortForwarding[j].Name ||
+				currentHostIp != nic.PortForwarding[j].HostIP ||
+				currentHostPort != nic.PortForwarding[j].HostPort ||
+				currentGuestIp != nic.PortForwarding[j].GuestIP ||
+				currentGuestPort != nic.PortForwarding[j].GuestPort ||
+				currentProtocol != nic.PortForwarding[j].Protocol {
+
+				needChangeRules = true
+				rule := vbg.PortForwarding{
+					Index:     j + 1,
+					NicIndex:  i + 1,
+					Name:      currentName,
+					Protocol:  currentProtocol,
+					HostIP:    currentHostIp,
+					HostPort:  currentHostPort,
+					GuestIP:   currentGuestIp,
+					GuestPort: currentGuestPort,
+				}
+				addNewForwardingList = append(addNewForwardingList, rule)
+				if j < amountOfRulesInVM {
+					deleteForwardingList = append(deleteForwardingList, nic.PortForwarding[j])
+				}
+			}
+		}
+
+		if len(nic.PortForwarding) > ruleNumber {
+			ln := len(nic.PortForwarding)
+			for j := 0; j < ln-ruleNumber; j++ {
+				needChangeRules = true
+				deleteForwardingList = append(deleteForwardingList, nic.PortForwarding[ln+j-1])
 			}
 		}
 	}
+
 	if needAppendNetwork {
 		parameters = append(parameters, "network_adapter")
 	}
@@ -600,6 +637,27 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		err = vb.ModifyVM(vm, parameters)
 		if err != nil {
 			return diag.Errorf("ModifyVM failed: %s", err.Error())
+		}
+	}
+
+	for i := 0; i < len(deleteForwardingList); i++ {
+		logrus.Info("delete ", deleteForwardingList[i].Name)
+	}
+	for i := 0; i < len(addNewForwardingList); i++ {
+		logrus.Info("add ", addNewForwardingList[i].Name)
+	}
+
+	if needChangeRules {
+		if len(deleteForwardingList) > 0 {
+			if err := vb.DeleteAllPortForw(vm, deleteForwardingList); err != nil {
+				return diag.Errorf("Unable to delete port forwardings: %s", err.Error())
+			}
+		}
+
+		if len(addNewForwardingList) > 0 {
+			if err := vb.AddALlPortForw(vm, addNewForwardingList); err != nil {
+				return diag.Errorf("Unable to set port forwardings: %s", err.Error())
+			}
 		}
 	}
 
@@ -865,19 +923,19 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		out["nic_type"] = getType(nic)
 		out["cable_connected"] = nic.CableConnected
 		rules := make([]map[string]any, 0, 3)
-		for i := 0; i < len(nic.PortForwarding); i++ {
+		for j := 0; j < len(nic.PortForwarding); j++ {
 			protocol := "tcp"
-			if nic.PortForwarding[i].Protocol == vbg.UDP {
+			if nic.PortForwarding[j].Protocol == vbg.UDP {
 				protocol = "udp"
 			}
 
 			rules = append(rules, map[string]any{
-				"name":      nic.PortForwarding[i].Name,
+				"name":      nic.PortForwarding[j].Name,
 				"protocol":  protocol,
-				"hostip":    nic.PortForwarding[i].HostIP,
-				"hostport":  nic.PortForwarding[i].HostPort,
-				"guestip":   nic.PortForwarding[i].GuestIP,
-				"guestport": nic.PortForwarding[i].GuestPort,
+				"hostip":    nic.PortForwarding[j].HostIP,
+				"hostport":  nic.PortForwarding[j].HostPort,
+				"guestip":   nic.PortForwarding[j].GuestIP,
+				"guestport": nic.PortForwarding[j].GuestPort,
 			})
 		}
 		out["port_forwarding"] = rules

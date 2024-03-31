@@ -7,8 +7,33 @@ resource "virtualbox_server" "VM_without_image" {
     memory    = 1000
     status = "running"
     os_id = "Windows7_64"
-    drag_and_drop = "guesttohost"
-    clipboard = "guesttohost"
+    //drag_and_drop = "guesttohost"
+    //clipboard = "guesttohost"
+
+    network_adapter {
+      network_mode = "nat"
+      
+      port_forwarding {
+        name = "lololo"
+        hostport = 63723
+        guestport = 24
+      }
+      port_forwarding {
+        name = "rule2"
+        hostport = 63722
+        guestport = 22
+      }
+      port_forwarding {
+        name = "rule3"
+        hostport = 63724
+        guestport = 21
+      }
+      port_forwarding {
+        name = "rule4"
+        hostport = 63726
+        guestport = 25
+      }
+    }
 }
 
 resource "virtualbox_server" "bad_VM_example" {
