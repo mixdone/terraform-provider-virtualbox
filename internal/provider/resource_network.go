@@ -21,6 +21,7 @@ func resourceHostOnly() *schema.Resource {
 			"index": {
 				Type:     schema.TypeInt,
 				Required: true,
+				ForceNew: true,
 			},
 
 			"ip": {
@@ -38,27 +39,32 @@ func resourceHostOnly() *schema.Resource {
 
 func resourceHostOnlyCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	vb := vbg.NewVBox(vbg.Config{
-		BasePath: "~/Desktop",
+		BasePath: "./",
 	})
 
 	var net vbg.Network
 	vb.CreateNet(&net)
+
+	d.SetId(net.GUID)
 
 	return resourceHostOnlyRead(ctx, d, m)
 }
 
 func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	vb := vbg.NewVBox(vbg.Config{
-		BasePath: "~/Desktop",
+		BasePath: "./",
 	})
 
 	nets, err := vb.HostOnlyNetInfo()
-
 	if err != nil {
+		d.SetId("")
 		return diag.Errorf(err.Error())
 	}
+
+	id := d.Id()
+
 	for _, net := range nets {
-		if net.GUID != d.Id() {
+		if net.GUID != id {
 			continue
 		}
 
@@ -82,7 +88,7 @@ func resourceHostOnlyUpdate(ctx context.Context, d *schema.ResourceData, m inter
 
 func resourceHostOnlyDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	vb := vbg.NewVBox(vbg.Config{
-		BasePath: "~/Desktop",
+		BasePath: "./",
 	})
 
 	net := vbg.Network{
@@ -96,6 +102,21 @@ func resourceHostOnlyDelete(ctx context.Context, d *schema.ResourceData, m inter
 }
 
 func resourceHostOnlyExists(d *schema.ResourceData, m interface{}) (bool, error) {
+	vb := vbg.NewVBox(vbg.Config{
+		BasePath: "~/Desktop",
+	})
+
+	nets, err := vb.HostOnlyNetInfo()
+	if err != nil {
+		return false, fmt.Errorf("network info failed: %s", err)
+	}
+
+	id := d.Id()
+	for _, net := range nets {
+		if net.GUID == id {
+			return true, nil
+		}
+	}
 
 	return false, nil
 }
