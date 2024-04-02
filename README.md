@@ -19,6 +19,38 @@ The [Terraform Provider](https://registry.terraform.io/providers/daria-barsukova
 [![Go Report Card](https://goreportcard.com/badge/github.com/mixdone/terraform-provider-virtualbox)](https://goreportcard.com/report/github.com/mixdone/terraform-provider-virtualbox)  
 
 
+## Provider Capabilities
+
+The provider provides the following features:
+
+1. Creating a virtual machine:
+   - Accept input parameters such as the name of the virtual machine, the path to the image, the size of memory, the number of processors and other configuration parameters.
+   - Create a folder for the virtual machine in the specified folder.
+   - Assign a status to the VM (for example, "running" or "poweroff").
+   - Configure the network adapter with a specific operating mode, type of NIC, whether the cable is connected and port forwarding settings.
+   - Transfer user data (for example, configuration scripts) inside the virtual machine.
+
+2. Updating the virtual machine:
+   - Update the parameters of the virtual machine.
+   - Change the configuration of the network adapter, including the operating mode and port settings.
+   - Update user data.
+
+3. Deleting a virtual machine:
+   - Remove a VM from the infrastructure.
+   - Clear the folder with the virtual machine data.
+
+4. Network Settings Management:
+   - Add/remove port forwarding settings for the virtual machine.
+
+5. Getting information about a virtual machine:
+   - Return information about the current state of the virtual machine, such as status, memory usage, number of processors, and other parameters.
+
+6. Working with images:
+   - Upload images from the specified URL.
+   - Manage paths to images and their sizes.
+  
+7. Managing virtual machine snapshots, including creating new snapshots, editing snapshot descriptions, and deleting existing snapshots.
+
 ## Example usage
 
 Take a look at the examples in the [documentation](https://registry.terraform.io/providers/daria-barsukova/virtualbox/latest/docs) of the registry or use the following example:
