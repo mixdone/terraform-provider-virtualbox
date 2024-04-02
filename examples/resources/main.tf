@@ -1,4 +1,8 @@
 
+resource "virtualbox_network" "name" {
+  index = 0
+}
+
 resource "virtualbox_server" "VM_without_image" {
     count     = 0
     name      = format("VM_without_image-%02d", count.index + 1)
@@ -44,7 +48,6 @@ resource "virtualbox_server" "VM_VDI" {
     memory    = 500
     url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
     status = "poweroff"
-    vdi_size = 25000
 }
 
 
