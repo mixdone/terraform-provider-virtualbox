@@ -35,6 +35,9 @@ jobs:
       - name: Run go vet
         run: go vet ./...
 
+      - name: Update packages
+        run: sudo apt-get update
+
       - name: Install VirtualBox
         run: sudo apt-get install virtualbox
 
