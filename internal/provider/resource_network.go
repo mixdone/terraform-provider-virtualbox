@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -23,12 +24,10 @@ func resourceHostOnly() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
-
 			"ip": {
 				Type:     schema.TypeString,
 				Optional: true,
 			},
-
 			"netmask": {
 				Type:     schema.TypeString,
 				Optional: true,
@@ -45,7 +44,7 @@ func resourceHostOnlyCreate(ctx context.Context, d *schema.ResourceData, m inter
 	var net vbg.Network
 	vb.CreateNet(&net)
 
-	d.SetId(net.GUID)
+	d.SetId(net.Name)
 
 	return resourceHostOnlyRead(ctx, d, m)
 }
@@ -64,20 +63,22 @@ func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interfa
 	id := d.Id()
 
 	for _, net := range nets {
-		if net.GUID != id {
+		if net.Name != id {
 			continue
 		}
 
-		if errors := d.Set("index", net.DeviceName[7:]); errors != nil {
+		index, _ := strconv.Atoi(net.DeviceName[7:])
+		if errors := d.Set("index", index); errors != nil {
 			return diag.Errorf(errors.Error())
 		}
-		if errors := d.Set("ipv4", net.IPNet.IP); errors != nil {
+		if errors := d.Set("ip", net.IPNet.IP.String()); errors != nil {
 			return diag.Errorf(errors.Error())
 		}
-		if errors := d.Set("netmask_ipv4", net.IPNet.Mask); errors != nil {
+		if errors := d.Set("netmask", net.IPNet.Mask.String()); errors != nil {
 			return diag.Errorf(errors.Error())
 		}
 
+		break
 	}
 	return nil
 }
