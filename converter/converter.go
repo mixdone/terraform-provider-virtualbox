@@ -31,6 +31,8 @@ func select_config() (string, error) {
 
 	if len(configs) == 0 {
 		return "", tools.ErrNoConfigurationFile
+	} else if len(configs) == 1 {
+		return configs[0], nil
 	} else {
 		var config string
 		for {

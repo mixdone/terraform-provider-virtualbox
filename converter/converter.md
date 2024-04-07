@@ -8,6 +8,7 @@ This converter is designed to convert a configuration file for terraform-provide
 2. Next, you will need to select the appropriate file for conversion from the list of suggested ones.
 3. The provider needs to be configured with the proper credentials before it can be used. To do this, you need to answer a few questions about the [IAM token](https://yandex.cloud/en/docs/iam/operations/iam-token/create "About IAM token"), the [cloud ID](https://yandex.cloud/ru/docs/resource-manager/operations/cloud/get-id#console_1 "About cloud ID"), the default [folder ID](https://yandex.cloud/ru/docs/resource-manager/operations/folder/get-id#api_1 "About folder ID"), and the [default availability zone](https://yandex.cloud/en/docs/overview/concepts/geo-scope "About availability zones").
 4. Then you need to answer the questions to fill in those fields that are not used in the original configuration file, but are necessary for the configuration file for the Yandex cloud.
+5. The converted configuration file will have the name *yandex_cloud.tf* and locate in the current directory.
 ### Validity of names
 The names of resources such as networks, subnets, virtual machines, folders, and virtual machine groups must satisfy the **following requirement**:\
 The name can contain lowercase Latin letters, numbers, and hyphens. The first character must be a letter. The last character must not be a hyphen. The allowed length is from 2 to 63 characters.

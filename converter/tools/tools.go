@@ -4,7 +4,7 @@ package tools
 import (
 	"errors"
 	"fmt"
-	"os/exec"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -29,15 +29,15 @@ type Info struct {
 func Get_yc_images() (map[string]string, error) {
 	yc_images := make(map[string]string)
 
-	out, err := exec.Command("powershell", "yc compute image list --folder-id standard-images").Output()
+	out, err := os.ReadFile("tools/yc_images.txt")
 	if err != nil {
 		return nil, err
 	}
 
 	splited_yc_images := strings.Split(string(out), "|")
 
-	for i := 7; i < len(splited_yc_images)-1; i += 6 {
-		yc_images[strings.TrimSpace(splited_yc_images[i+1])] = strings.TrimSpace(splited_yc_images[i])
+	for i := 7; i < len(splited_yc_images)-2; i += 6 {
+		yc_images[strings.ReplaceAll(splited_yc_images[i+1], " ", "")] = strings.ReplaceAll(splited_yc_images[i], " ", "")
 	}
 
 	return yc_images, nil
