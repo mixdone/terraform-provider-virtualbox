@@ -27,10 +27,12 @@ func resourceHostOnly() *schema.Resource {
 			"ip": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
 			"netmask": {
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 			},
 		},
 	}
@@ -45,6 +47,7 @@ func resourceHostOnlyCreate(ctx context.Context, d *schema.ResourceData, m inter
 	vb.CreateNet(&net)
 
 	d.SetId(net.Name)
+	net.Mode = vbg.NWMode_hostonly
 
 	return resourceHostOnlyRead(ctx, d, m)
 }
@@ -63,6 +66,7 @@ func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interfa
 	id := d.Id()
 
 	for _, net := range nets {
+
 		if net.Name != id {
 			continue
 		}
@@ -71,10 +75,10 @@ func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interfa
 		if errors := d.Set("index", index); errors != nil {
 			return diag.Errorf(errors.Error())
 		}
-		if errors := d.Set("ip", net.IPNet.IP.String()); errors != nil {
+		if errors := d.Set("ip", fmt.Sprintf("%v", net.IPNet.IP)); errors != nil {
 			return diag.Errorf(errors.Error())
 		}
-		if errors := d.Set("netmask", net.IPNet.Mask.String()); errors != nil {
+		if errors := d.Set("netmask", fmt.Sprintf("%v", net.IPNet.Mask)); errors != nil {
 			return diag.Errorf(errors.Error())
 		}
 
@@ -114,7 +118,7 @@ func resourceHostOnlyExists(d *schema.ResourceData, m interface{}) (bool, error)
 
 	id := d.Id()
 	for _, net := range nets {
-		if net.GUID == id {
+		if net.Name == id {
 			return true, nil
 		}
 	}
