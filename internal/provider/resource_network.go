@@ -3,7 +3,10 @@ package provider
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -32,29 +35,58 @@ func resourceHostOnly() *schema.Resource {
 			"netmask": {
 				Type:     schema.TypeString,
 				Optional: true,
-				Computed: true,
+				Default:  "255.255.255.0",
 			},
 		},
 	}
 }
 
 func resourceHostOnlyCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	homeDir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{
-		BasePath: "./",
+		BasePath: homeDir,
 	})
 
-	var net vbg.Network
-	vb.CreateNet(&net)
+	netCurr := vbg.Network{
+		Name: fmt.Sprintf("vboxnet%v", d.Get("index").(int)),
+		Mode: vbg.NWMode_hostonly,
+	}
 
-	d.SetId(net.Name)
-	net.Mode = vbg.NWMode_hostonly
+	if err := vb.CreateNet(&netCurr); err != nil {
+		return diag.Errorf(err.Error())
+	}
+
+	d.SetId(netCurr.Name)
+
+	if ip, ok := d.GetOk("ip"); ok {
+
+		octetsIP := strings.Split(ip.(string), ".")
+		oip0, _ := strconv.Atoi(octetsIP[0])
+		oip1, _ := strconv.Atoi(octetsIP[1])
+		oip2, _ := strconv.Atoi(octetsIP[2])
+		oip3, _ := strconv.Atoi(octetsIP[3])
+		netCurr.IPNet.IP = net.IPv4(byte(oip0), byte(oip1), byte(oip2), byte(oip3))
+
+		octetsMask := strings.Split(d.Get("netmask").(string), ".")
+		omask0, _ := strconv.Atoi(octetsMask[0])
+		omask1, _ := strconv.Atoi(octetsMask[1])
+		omask2, _ := strconv.Atoi(octetsMask[2])
+		omask3, _ := strconv.Atoi(octetsMask[3])
+		netCurr.IPNet.Mask = net.IPv4Mask(byte(omask0), byte(omask1), byte(omask2), byte(omask3))
+
+		if err := vb.ChangeNet(&netCurr); err != nil {
+			return diag.Errorf(err.Error())
+		}
+
+	}
 
 	return resourceHostOnlyRead(ctx, d, m)
 }
 
 func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	homeDir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{
-		BasePath: "./",
+		BasePath: homeDir,
 	})
 
 	nets, err := vb.HostOnlyNetInfo()
@@ -65,41 +97,78 @@ func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interfa
 
 	id := d.Id()
 
-	for _, net := range nets {
+	var necessaryNetwork vbg.Network
 
-		if net.Name != id {
-			continue
+	for _, i := range nets {
+		if i.Name == id {
+			necessaryNetwork = i
 		}
-
-		index, _ := strconv.Atoi(net.DeviceName[7:])
-		if errors := d.Set("index", index); errors != nil {
-			return diag.Errorf(errors.Error())
-		}
-		if errors := d.Set("ip", fmt.Sprintf("%v", net.IPNet.IP)); errors != nil {
-			return diag.Errorf(errors.Error())
-		}
-		if errors := d.Set("netmask", fmt.Sprintf("%v", net.IPNet.Mask)); errors != nil {
-			return diag.Errorf(errors.Error())
-		}
-
-		break
 	}
+
+	index, _ := strconv.Atoi(necessaryNetwork.DeviceName[7:])
+	if errors := d.Set("index", index); errors != nil {
+		return diag.Errorf(errors.Error())
+	}
+	if errors := d.Set("ip", fmt.Sprintf("%v", necessaryNetwork.IPNet.IP)); errors != nil {
+		return diag.Errorf(errors.Error())
+	}
+	if errors := d.Set("netmask", fmt.Sprintf("%v", necessaryNetwork.IPNet.Mask)); errors != nil {
+		return diag.Errorf(errors.Error())
+	}
+
 	return nil
 }
 
 func resourceHostOnlyUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	return nil
+	homeDir, _ := os.UserHomeDir()
+	vb := vbg.NewVBox(vbg.Config{
+		BasePath: homeDir,
+	})
+
+	nets, err := vb.HostOnlyNetInfo()
+	if err != nil {
+		return diag.Errorf(err.Error())
+	}
+
+	var necessaryNetwork vbg.Network
+	necessaryNetwork.Mode = vbg.NWMode_hostonly
+
+	id := d.Id()
+
+	for _, i := range nets {
+		if i.Name == id {
+			necessaryNetwork = i
+		}
+	}
+
+	actualIP := necessaryNetwork.IPNet.IP
+	newIP := d.Get("ip").(string)
+	if fmt.Sprintf("%v", actualIP) != newIP {
+		necessaryNetwork.IPNet.IP = net.IP(newIP)
+	}
+
+	actualIPMask := necessaryNetwork.IPNet.Mask
+	newIPMask := d.Get("netmask").(string)
+	if fmt.Sprintf("%v", actualIPMask) != newIPMask {
+		necessaryNetwork.IPNet.Mask = net.IPMask(newIPMask)
+	}
+
+	vb.ChangeNet(&necessaryNetwork)
+
+	return resourceHostOnlyRead(ctx, d, m)
 }
 
 func resourceHostOnlyDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	homeDir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{
-		BasePath: "./",
+		BasePath: homeDir,
 	})
 
-	net := vbg.Network{
+	netCurr := vbg.Network{
 		Name: fmt.Sprintf("vboxnet%v", d.Get("index")),
+		Mode: vbg.NWMode_hostonly,
 	}
-	if err := vb.DeleteNet(&net); err != nil {
+	if err := vb.DeleteNet(&netCurr); err != nil {
 		return diag.Errorf(err.Error())
 	}
 
@@ -107,8 +176,9 @@ func resourceHostOnlyDelete(ctx context.Context, d *schema.ResourceData, m inter
 }
 
 func resourceHostOnlyExists(d *schema.ResourceData, m interface{}) (bool, error) {
+	homeDir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{
-		BasePath: "~/Desktop",
+		BasePath: homeDir,
 	})
 
 	nets, err := vb.HostOnlyNetInfo()
@@ -117,8 +187,8 @@ func resourceHostOnlyExists(d *schema.ResourceData, m interface{}) (bool, error)
 	}
 
 	id := d.Id()
-	for _, net := range nets {
-		if net.Name == id {
+	for _, netCurr := range nets {
+		if netCurr.Name == id {
 			return true, nil
 		}
 	}
