@@ -442,7 +442,7 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 
 	// Set network for Terraform
 	if err := setNetwork(d, vm); err != nil {
-		return diag.Errorf("Didn't manage to set VMState: %s", err.Error())
+		return diag.Errorf("Didn't manage to set Network: %s", err.Error())
 	}
 
 	// Set snapshots for Terraform
@@ -638,13 +638,6 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 		if err != nil {
 			return diag.Errorf("ModifyVM failed: %s", err.Error())
 		}
-	}
-
-	for i := 0; i < len(deleteForwardingList); i++ {
-		logrus.Info("delete ", deleteForwardingList[i].Name)
-	}
-	for i := 0; i < len(addNewForwardingList); i++ {
-		logrus.Info("add ", addNewForwardingList[i].Name)
 	}
 
 	if needChangeRules {
