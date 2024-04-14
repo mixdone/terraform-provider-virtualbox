@@ -28,9 +28,10 @@ func resourceHostOnly() *schema.Resource {
 				ForceNew: true,
 			},
 			"ip": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
+				Description: "host-only network adapters are restricted to IPs in the range 192.168.56.0/21. You can tell VirtualBox to allow additional IP ranges by configuring /etc/vbox/networks.conf",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
 			},
 			"netmask": {
 				Type:     schema.TypeString,
@@ -77,7 +78,6 @@ func resourceHostOnlyCreate(ctx context.Context, d *schema.ResourceData, m inter
 		if err := vb.ChangeNet(&netCurr); err != nil {
 			return diag.Errorf(err.Error())
 		}
-
 	}
 
 	return resourceHostOnlyRead(ctx, d, m)
@@ -97,11 +97,11 @@ func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interfa
 
 	id := d.Id()
 
-	var necessaryNetwork vbg.Network
+	var necessaryNetwork *vbg.Network
 
 	for _, i := range nets {
 		if i.Name == id {
-			necessaryNetwork = i
+			necessaryNetwork = &i
 		}
 	}
 
@@ -109,10 +109,10 @@ func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interfa
 	if errors := d.Set("index", index); errors != nil {
 		return diag.Errorf(errors.Error())
 	}
-	if errors := d.Set("ip", fmt.Sprintf("%v", necessaryNetwork.IPNet.IP)); errors != nil {
+	if errors := d.Set("ip", necessaryNetwork.IPNet.IP.String()); errors != nil {
 		return diag.Errorf(errors.Error())
 	}
-	if errors := d.Set("netmask", fmt.Sprintf("%v", necessaryNetwork.IPNet.Mask)); errors != nil {
+	if errors := d.Set("netmask", fmt.Sprintf("%v", net.IP(necessaryNetwork.IPNet.Mask))); errors != nil {
 		return diag.Errorf(errors.Error())
 	}
 
@@ -172,7 +172,7 @@ func resourceHostOnlyDelete(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf(err.Error())
 	}
 
-	return resourceHostOnlyRead(ctx, d, m)
+	return nil
 }
 
 func resourceHostOnlyExists(d *schema.ResourceData, m interface{}) (bool, error) {
