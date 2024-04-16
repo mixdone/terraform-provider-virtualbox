@@ -1,12 +1,20 @@
 
 resource "virtualbox_server" "VM_without_image" {
-    count     = 1
+    count     = 0
     name      = format("VM_without_image-%02d", count.index + 1)
     basedir = format("VM_without_image-%02d", count.index + 1)
     cpus      = 3
     memory    = 1000
     status = "poweroff"
     os_id = "Windows7_64"
+}
+
+resource "dhcp_server" "name" {
+  server_ip = "10.0.2.1"
+  lower_ip = "10.0.2.2"
+  upper_ip = "10.0.2.254"
+  network_name = "NatNetwork"
+  network_mask = "255.255.255.0"
 }
 
 resource "virtualbox_server" "bad_VM_example" {
@@ -37,7 +45,7 @@ resource "virtualbox_server" "bad_VM_example" {
 # }
 
 resource "virtualbox_server" "VM_VDI" {
-    count     = 1
+    count     = 0
     name      = format("VM_VDI-%02d", count.index + 1)
     basedir = format("VM_VDI-%02d", count.index + 1)
     cpus      = 2

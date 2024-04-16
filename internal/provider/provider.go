@@ -8,6 +8,7 @@ func Provider() *schema.Provider {
 	return &schema.Provider{
 		ResourcesMap: map[string]*schema.Resource{
 			"virtualbox_server": resourceVM(),
+			"dhcp_server":       dhcp(),
 		},
 	}
 }
