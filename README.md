@@ -8,8 +8,6 @@
 
 # terraform-provider-virtualbox
 
-The [Terraform Provider](https://registry.terraform.io/providers/daria-barsukova/virtualbox/latest) allows [Terraform](https://terraform.io) to manage [VirtualBox](https://www.virtualbox.org/) resources.
-
 [![Release](https://img.shields.io/github/v/release/daria-barsukova/terraform-provider-virtualbox)](https://github.com/daria-barsukova/terraform-provider-virtualbox/releases)
 [![Installs](https://img.shields.io/badge/dynamic/json?logo=terraform&label=installs&query=$.data.attributes.downloads&url=https%3A%2F%2Fregistry.terraform.io%2Fv2%2Fproviders%2F712)](https://registry.terraform.io/providers/daria-barsukova/virtualbox)
 [![Registry](https://img.shields.io/badge/registry-doc%40latest-lightgrey?logo=terraform)](https://registry.terraform.io/providers/daria-barsukova/virtualbox/latest/docs)
@@ -18,6 +16,13 @@ The [Terraform Provider](https://registry.terraform.io/providers/daria-barsukova
 [![Lint Status](https://github.com/mixdone/terraform-provider-virtualbox/workflows/CodeQL/badge.svg)](https://github.com/mixdone/terraform-provider-virtualbox/actions)
 [![Go Report Card](https://goreportcard.com/badge/github.com/mixdone/terraform-provider-virtualbox)](https://goreportcard.com/report/github.com/mixdone/terraform-provider-virtualbox)  
 
+The [Terraform Provider](https://registry.terraform.io/providers/daria-barsukova/virtualbox/latest) allows [Terraform](https://terraform.io) to manage [VirtualBox](https://www.virtualbox.org/) resources.
+
+## Requirements
+
+-	[Terraform](https://www.terraform.io/downloads.html)  v1.5.7+
+-	[Go](https://golang.org/doc/install) 1.21.1 (to build the provider plugin)
+-  [VirtualBox](https://www.virtualbox.org/manual/ch02.html)
 
 ## Provider Capabilities
 
@@ -53,7 +58,9 @@ The provider provides the following features:
 
 ## Example usage
 
-Take a look at the examples in the [documentation](https://registry.terraform.io/providers/daria-barsukova/virtualbox/latest/docs) of the registry or use the following example:
+* [Guide for launching the provider on your device ](https://github.com/mixdone/terraform-provider-virtualbox/main/GUIDE.md)
+
+* Take a look at the examples in the [documentation](https://registry.terraform.io/providers/daria-barsukova/virtualbox/latest/docs) of the registry or use the following example:
 
 ```hcl
 # Creating a resource "virtualbox_server" with the name "VM_without_image"
@@ -87,78 +94,6 @@ resource "virtualbox_server" "bad_VM_example" {
 
 ## Guide for launching the provider on your device 
 
-1. Download the contents of the main branch to your device
-
-2. Build the provider code using the command
-  * Linux
-    ```
-    go build -o terraform-provider-virtualbox
-    ```
-    
-  * Windows
-    ```
-    go build -o terraform-provider-virtualbox.exe
-    ```
-
-3. In order to use the provider, we need to create the below directory structure inside the plugins directory 
-  * Linux
-    ```
-    ~/.terraform.d/plugins/${host_name}/${namespace}/${type}/${version}/${target}
-    ```
-
-  * Windows
-    ```
-    %APPDATA%\terraform.d\plugins\${host_name}\${namespace}\${type}\${version}\${target}
-    ```
-    Where:
-      * host_name -> somehostname.com
-      * namespace -> provider name space
-      * type -> provider type
-      * version -> semantic versioning of the provider
-      * target -> target operating system
-
-  * As a first step, we need to the create the directory
-    * Linux
-    ```
-    mkdir -p ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
-    ```
-    
-    * Windows
-    ```
-    mkdir Path_to_the_AppData_folder\AppData\Roaming\terraform.d\plugins\terraform-virtualbox.local\virtualboxprovider\virtualbox\1.0.0\windows_amd64
-    ```
-    
-    * MacOS
-    ```
-    mkdir Path_to_the_AppData_folder\AppData\Roaming\terraform.d\plugins\terraform-virtualbox.local\virtualboxprovider\virtualbox\1.0.0\darwin_x86_64
-    ```
-    
-  * Then, copy the terraform-provider-virtualbox to the created directory
-    * Linux
-    ```
-    cp terraform-provider-virtualbox ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
-    ```
-    
-    * Windows
-    ```
-    cp terraform-provider-virtualbox.exe Path_to_the_AppData_folder\AppData\Roaming\terraform.d\plugins\terraform-virtualbox.local\virtualboxprovider\virtualbox\1.0.0\windows_amd64
-    ```
-    
-    * MacOS
-    ```
-    cp terraform-provider-virtualbox.exe Path_to_the_AppData_folder\AppData\Roaming\terraform.d\plugins\terraform-virtualbox.local\virtualboxprovider\virtualbox\1.0.0\darwin_x86_64
-    ```
-    
-4. Go to the config folder
-```
-cd examples/resources
-```
-
-5. Use the commands 
-  * Terraform init
-  * Terraform plan
-  * Terraform apply
-  * Terraform destroy
 
 ## Support
 For any issues or questions related to this provider, please open an issue on the [GitHub repository](https://github.com/mixdone/terraform-provider-virtualbox)
