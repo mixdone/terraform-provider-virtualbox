@@ -92,9 +92,6 @@ resource "virtualbox_server" "bad_VM_example" {
 }
 ```
 
-## Guide for launching the provider on your device 
-
-
 ## Support
 For any issues or questions related to this provider, please open an issue on the [GitHub repository](https://github.com/mixdone/terraform-provider-virtualbox)
 
