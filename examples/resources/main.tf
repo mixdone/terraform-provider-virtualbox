@@ -1,5 +1,4 @@
 
-
 resource "virtualbox_dhcp" "hello" {
   count = 1
   server_ip = "10.0.2.3"
@@ -33,41 +32,43 @@ resource "virtualbox_server" "VM_without_image" {
         name = "rule2"
         hostport = 63722
         guestport = 22
-      }
-      port_forwarding {
-        name = "rule3"
-        hostport = 63724
-        guestport = 21
-      }
-      port_forwarding {
-        name = "rule4"
-        hostport = 63726
-        guestport = 25
-      }
     }
+    ipv6 = true
+    port_forwarding_6 {
+        name = "rule2"
+        protocol = "udp"
+        hostport = 1022
+        guestip = "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+        guestport = 21
+    }
+}
+}
+
+resource "virtualbox_server" "VM_without_image" {
+  count     = 1
+  name      = format("VM_without_image-%02d", count.index + 1)
+  basedir   = format("VM_without_image-%02d", count.index + 1)
+  cpus      = 3
+  memory    = 1000
+  status    = "poweroff"
+  os_id     = "Windows7_64"
+  user_data = file("${path.module}/user_data")
 }
 
 resource "virtualbox_server" "bad_VM_example" {
-    count     = 0
-    name      = format("VM_without_image-%02d", count.index + 1)
-    basedir = format("VM_without_image-%02d", count.index + 1)
-    cpus      = 3
-    memory    = 2500
-    status = "poweroff"
-    os_id = "Windows7_64"
-    group = "/man"
+  count   = 0
+  name    = format("VM_without_image-%02d", count.index + 1)
+  basedir = format("VM_without_image-%02d", count.index + 1)
+  cpus    = 3
+  memory  = 2500
+  status  = "poweroff"
+  os_id   = "Windows7_64"
+  group   = "/man"
 
-    snapshot {
-      name = "hello"
-      description = "hohohhoho"
-      current = true
-    }
-
-    snapshot {
-      name = "hello2"
-      description = "hohohhoho"
-      
-    }
+  snapshot {
+    name        = "hello"
+    description = "hohohhoho"
+  }
 }
 
 
@@ -82,53 +83,42 @@ resource "virtualbox_server" "bad_VM_example" {
 # }
 
 resource "virtualbox_server" "VM_VDI" {
-    count     = 1
-    name      = format("VM_VDI-%02d", count.index + 1)
-    basedir = format("VM_VDI-%02d", count.index + 1)
-    cpus      = 20000
-    memory    = 500
-    //url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
-    status = "poweroff"
-    vdi_size = 25000
+  count   = 1
+  name    = format("VM_VDI-%02d", count.index + 1)
+  basedir = format("VM_VDI-%02d", count.index + 1)
+  cpus    = 2
+  memory  = 500
+  //url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
+  status   = "poweroff"
+  vdi_size = 25000
 }
 
 
 
 resource "virtualbox_server" "VM_network" {
-    count     = 0
-    name      = format("VM_network-%02d", count.index + 1)
-    basedir = format("VM_network-%02d", count.index + 1)
-    cpus      = 3000
-    memory    = 50000000000
+  count   = 0
+  name    = format("VM_network-%02d", count.index + 1)
+  basedir = format("VM_network-%02d", count.index + 1)
+  cpus    = 3
+  memory  = 500
 
-    status = "fsdjalkjflkdsj"
-    group = "jalskdfj"
+  network_adapter {
+    network_mode = "nat"
+  }
+  network_adapter {
+    network_mode    = "nat"
+    nic_type        = "82540EM"
+    cable_connected = true
+  }
+  network_adapter {
+    network_mode = "hostonly"
+  }
+  network_adapter {
+    network_mode = "bridged"
+    nic_type     = "virtio"
+  }
 
-    network_adapter {
-        network_mode = "adf"
-    }
-    network_adapter {
-        network_mode = "asdfsadf"
-        nic_type = "82jdsjflksjlM"
-        cable_connected = true
-    }
-    network_adapter {
-        network_mode = "hostafnly"
-    }
-    network_adapter {
-        network_mode = "bridsadfed"
-        nic_type = "virtio"
-    }
-
-    snapshot {
-      name = "hello"
-      description = "eeee"
-    }
-
-    snapshot {
-      name = "hello2"
-      description = "hohoho"
-    }
+  status = "poweroff"
 }
 
 # resource "virtualbox_server" "VM_ISO" {
