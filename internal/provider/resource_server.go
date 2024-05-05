@@ -162,6 +162,7 @@ func resourceVM() *schema.Resource {
 				Description: "Userdata for virtual machine.",
 				Type:        schema.TypeString,
 				Optional:    true,
+				Default:     "",
 			},
 
 			"os_id": {
@@ -369,13 +370,29 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	status := d.Get("status").(string)
 
-	if err := vb.AddALlPortForw(vm, rule); err != nil {
-		return diag.Errorf("Unable to set all port forwardings: %s", err.Error())
+	if len(rule) > 0 {
+		if err := vb.AddALlPortForw(vm, rule); err != nil {
+			return diag.Errorf("Unable to set all port forwardings: %s", err.Error())
+		}
+	}
+
+	vm.Spec.DragAndDrop = vmConf.DragAndDrop
+	vm.Spec.Clipboard = vmConf.Clipboard
+
+	if vmConf.DragAndDrop != "disabled" || vmConf.Clipboard != "disabled" {
+
+		if _, err := vb.ControlVM(vm, "draganddrop"); err != nil {
+			return diag.Errorf("Unable to set draganddrop VM: %s", err.Error())
+		}
+
+		if _, err := vb.ControlVM(vm, "clipboard mode"); err != nil {
+			return diag.Errorf("Unable to set clipboard VM: %s", err.Error())
+		}
 	}
 
 	if status != "poweroff" {
 		if _, err := vb.ControlVM(vm, status); err != nil {
-			return diag.Errorf("Unable to running VM: %s", err.Error())
+			return diag.Errorf("Unable to set state VM: %s", err.Error())
 		}
 		vm.Spec.State = vbg.VirtualMachineState(status)
 		if err = setState(d, vm); err != nil {
@@ -383,19 +400,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
-  vm.Spec.DragAndDrop = vmConf.DragAndDrop
-	vm.Spec.Clipboard = vmConf.Clipboard
-	if _, err := vb.ControlVM(vm, "draganddrop"); err != nil {
-		return diag.Errorf("Unable to set draganddrop VM: %s", err.Error())
-	}
-
-	if _, err := vb.ControlVM(vm, "clipboard mode"); err != nil {
-		return diag.Errorf("Unable to set clipboard VM: %s", err.Error())
-	}
 	userData := d.Get("user_data").(string)
 	if userData != "" {
-		err = vb.SetCloudData("user_data", userData)
-  }
+		vb.SetCloudData("user_data", userData)
+	}
 
 	return resourceVirtualBoxRead(ctx, d, m)
 }
@@ -416,14 +424,17 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("VMInfo failed: %s", err.Error())
 	}
 
-	userData, err := vm.GetCloudData("user_data")
-	if err != nil {
-		return diag.Errorf("Failed to get cloud-config: %v", err.Error())
-	}
-	if userData != nil && *userData != "" {
-		err = d.Set("user_data", *userData)
+	val := d.Get("user_data").(string)
+	if val != "" {
+		userData, err := vb.GetCloudData("user_data")
 		if err != nil {
-			return diag.Errorf("Failed to set cloud-config: %v", err.Error())
+			return diag.Errorf("Failed to get cloud-config: %v", err.Error())
+		}
+		if userData != nil && *userData != "" {
+			err = d.Set("user_data", *userData)
+			if err != nil {
+				return diag.Errorf("Failed to set cloud-config: %v", err.Error())
+			}
 		}
 	}
 
