@@ -28,9 +28,11 @@ type VMConfig struct {
 	OS_id      string
 	Group      string
 	Snapshot   vbg.Snapshot
+	NICs       []vbg.NIC
 }
 
 // create VM with chosen loading type
+
 func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
 	var vdiDisk string
@@ -111,6 +113,7 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 		Disks:           disks,
 		Group:           vmCfg.Group,
 		CurrentSnapshot: vmCfg.Snapshot,
+		NICs:            vmCfg.NICs,
 	}
 
 	vm := &vbg.VirtualMachine{
@@ -134,6 +137,10 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 
 	if err := vb.SetMemory(vm, vm.Spec.Memory.SizeMB); err != nil {
 		return nil, fmt.Errorf("set memory failed: %s", err.Error())
+	}
+
+	if err := vb.ModifyVM(vm, []string{"network_adapter"}); err != nil {
+		return nil, fmt.Errorf("set network failed: %s", err.Error())
 	}
 
 	// Connecting a disk to a virtual machine
