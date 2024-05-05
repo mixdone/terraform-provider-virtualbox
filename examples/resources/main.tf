@@ -1,12 +1,36 @@
-resource "virtualbox_natnetwork" "NatNet1" {
-    name = "NatNet1"
-    network = "192.168.10.0/24"
-    dhcp = false
-    port_forwarding_4 {
-        name = "rule1"
-        protocol = "tcp"
-        hostport = 1024
-        guestip = "192.168.10.6"
+
+resource "virtualbox_dhcp" "hello" {
+  count = 1
+  server_ip = "10.0.2.3"
+  lower_ip = "10.0.2.23"
+  upper_ip = "10.0.2.200"
+  network_name = "hohoho"
+  network_mask = "255.255.0.0"
+  enabled = false
+}
+
+resource "virtualbox_server" "VM_without_image" {
+    count     = 1
+    name      = format("VM_without_image-%02d", count.index + 1)
+    basedir = format("VM_without_image-%02d", count.index + 1)
+    cpus      = 3
+    memory    = 1000
+    status = "poweroff"
+    os_id = "Windows7_64"
+    //drag_and_drop = "guesttohost"
+    //clipboard = "guesttohost"
+
+    network_adapter {
+      network_mode = "nat"
+      
+      port_forwarding {
+        name = "lololo"
+        hostport = 63723
+        guestport = 24
+      }
+      port_forwarding {
+        name = "rule2"
+        hostport = 63722
         guestport = 22
     }
     ipv6 = true
@@ -17,6 +41,7 @@ resource "virtualbox_natnetwork" "NatNet1" {
         guestip = "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
         guestport = 21
     }
+}
 }
 
 resource "virtualbox_server" "VM_without_image" {
