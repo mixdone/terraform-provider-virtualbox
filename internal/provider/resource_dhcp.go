@@ -2,13 +2,16 @@ package provider
 
 import (
 	"context"
+	"os"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	vbg "github.com/mixdone/virtualbox-go"
+	"github.com/sirupsen/logrus"
 )
 
-func dhcp() *schema.Resource {
+func resourceDHCP() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: dhcpServerCreate,
 		ReadContext:   dhcpServerRead,
@@ -39,6 +42,7 @@ func dhcp() *schema.Resource {
 				Description: "the name of the network where the dhcp server will be running",
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 			},
 
 			"network_mask": {
@@ -57,7 +61,7 @@ func dhcp() *schema.Resource {
 }
 
 func dhcpServerCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	var dhcp vbg.DHCPServer
+	dhcp := vbg.DHCPServer{}
 
 	dhcp.IPAddress = d.Get("server_ip").(string)
 	dhcp.LowerIPAddress = d.Get("lower_ip").(string)
@@ -66,44 +70,57 @@ func dhcpServerCreate(ctx context.Context, d *schema.ResourceData, m interface{}
 	dhcp.NetworkName = d.Get("network_name").(string)
 	dhcp.Enabled = d.Get("enabled").(bool)
 
-	vb := vbg.NewVBox(vbg.Config{})
-	vb.AddDHCPServer(dhcp)
+	homedir, _ := os.UserHomeDir()
+	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
+	if _, err := vb.AddDHCPServer(dhcp); err != nil {
+		if !strings.Contains(err.Error(), "exists") {
+			return diag.Errorf("add dhcpserver failed: %s", err.Error())
+		}
+	}
+	d.SetId(dhcp.NetworkName)
 
 	return dhcpServerRead(ctx, d, m)
 }
 
 func dhcpServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	vb := vbg.NewVBox(vbg.Config{})
+	homedir, _ := os.UserHomeDir()
+	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
 	dhcp, err := vb.DHCPInfo(d.Get("network_name").(string))
+	logrus.Info("hello4")
 	if err != nil {
-		diag.Errorf("dhcpInfo failed: %s", err.Error())
+		return diag.Errorf("dhcpInfo failed: %s", err.Error())
 	}
 
 	if err := d.Set("server_ip", dhcp.IPAddress); err != nil {
-		diag.Errorf("Didn't manage to set server ip: %s", err.Error())
+		return diag.Errorf("Didn't manage to set server ip: %s", err.Error())
 	}
 
 	if err := d.Set("lower_ip", dhcp.LowerIPAddress); err != nil {
-		diag.Errorf("Didn't manage to set lower ip: %s", err.Error())
+		return diag.Errorf("Didn't manage to set lower ip: %s", err.Error())
 	}
 
 	if err := d.Set("upper_ip", dhcp.UpperIPAddress); err != nil {
-		diag.Errorf("Didn't manage to set upper ip: %s", err.Error())
+		return diag.Errorf("Didn't manage to set upper ip: %s", err.Error())
 	}
 
 	if err := d.Set("network_mask", dhcp.NetworkMask); err != nil {
-		diag.Errorf("Didn't manage to set network mask: %s", err.Error())
+		return diag.Errorf("Didn't manage to set network mask: %s", err.Error())
 	}
 
 	if err := d.Set("network_name", dhcp.NetworkName); err != nil {
-		diag.Errorf("Didn't manage to set network name: %s", err.Error())
+		return diag.Errorf("Didn't manage to set network name: %s", err.Error())
+	}
+
+	if err := d.Set("enabled", dhcp.Enabled); err != nil {
+		return diag.Errorf("Didn't manage to set state: %s", err.Error())
 	}
 
 	return nil
 }
 
 func dhcpServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	vb := vbg.NewVBox(vbg.Config{})
+	homedir, _ := os.UserHomeDir()
+	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
 	dhcpOld, err := vb.DHCPInfo(d.Get("network_name").(string))
 	if err != nil {
 		diag.Errorf("dhcpInfo failed: %s", err.Error())
@@ -140,10 +157,6 @@ func dhcpServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}
 		parametrs = append(parametrs, "netmask")
 	}
 
-	if dhcpOld.NetworkName != dhcpNew.NetworkName {
-		parametrs = append(parametrs, "netname")
-	}
-
 	if err := vb.ModifyDHCPServer(dhcpNew, parametrs); err != nil {
 		diag.Errorf("Modify DHCP failed: %s", err.Error())
 	}
@@ -152,7 +165,8 @@ func dhcpServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}
 }
 
 func dhcpServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	vb := vbg.NewVBox(vbg.Config{})
+	homedir, _ := os.UserHomeDir()
+	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
 	dhcp, err := vb.DHCPInfo(d.Get("network_name").(string))
 	if err != nil {
 		diag.Errorf("dhcpInfo failed: %s", err.Error())
@@ -166,10 +180,15 @@ func dhcpServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}
 }
 
 func dhcpServerExists(d *schema.ResourceData, m interface{}) (bool, error) {
-	vb := vbg.NewVBox(vbg.Config{})
+	homedir, _ := os.UserHomeDir()
+	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
 	_, err := vb.DHCPInfo(d.Get("network_name").(string))
 	if err != nil {
-		return false, err
+		if !strings.Contains(err.Error(), "exists") {
+			return false, err
+		} else {
+			return true, nil
+		}
 	}
 	return true, err
 }
