@@ -159,9 +159,9 @@ func resourceVM() *schema.Resource {
 			},
 
 			"user_data": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Description: "Userdata for virtual machine.",
+				Type:        schema.TypeString,
+				Optional:    true,
 			},
 
 			"os_id": {
@@ -383,7 +383,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
-	vm.Spec.DragAndDrop = vmConf.DragAndDrop
+  vm.Spec.DragAndDrop = vmConf.DragAndDrop
 	vm.Spec.Clipboard = vmConf.Clipboard
 	if _, err := vb.ControlVM(vm, "draganddrop"); err != nil {
 		return diag.Errorf("Unable to set draganddrop VM: %s", err.Error())
@@ -392,6 +392,10 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	if _, err := vb.ControlVM(vm, "clipboard mode"); err != nil {
 		return diag.Errorf("Unable to set clipboard VM: %s", err.Error())
 	}
+	userData := d.Get("user_data").(string)
+	if userData != "" {
+		err = vb.SetCloudData("user_data", userData)
+  }
 
 	return resourceVirtualBoxRead(ctx, d, m)
 }
@@ -410,6 +414,17 @@ func resourceVirtualBoxRead(ctx context.Context, d *schema.ResourceData, m inter
 	if err != nil {
 		d.SetId("")
 		return diag.Errorf("VMInfo failed: %s", err.Error())
+	}
+
+	userData, err := vm.GetCloudData("user_data")
+	if err != nil {
+		return diag.Errorf("Failed to get cloud-config: %v", err.Error())
+	}
+	if userData != nil && *userData != "" {
+		err = d.Set("user_data", *userData)
+		if err != nil {
+			return diag.Errorf("Failed to set cloud-config: %v", err.Error())
+		}
 	}
 
 	if err := d.Set("drag_and_drop", vm.Spec.DragAndDrop); err != nil {
