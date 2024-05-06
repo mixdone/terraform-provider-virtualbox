@@ -143,8 +143,10 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 		return nil, fmt.Errorf("set memory failed: %s", err.Error())
 	}
 
-	if err := vb.ModifyVM(vm, []string{"network_adapter"}); err != nil {
-		return nil, fmt.Errorf("set network failed: %s", err.Error())
+	if len(vm.Spec.NICs) > 0 {
+		if err := vb.ModifyVM(vm, []string{"network_adapter"}); err != nil {
+			return nil, fmt.Errorf("set network failed: %s", err.Error())
+		}
 	}
 
 	// Connecting a disk to a virtual machine
