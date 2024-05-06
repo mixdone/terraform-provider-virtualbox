@@ -1,15 +1,15 @@
 
 resource "virtualbox_server" "VM_ISO" {
-    count     = 1
+    count     = 0
     name      = format("VM_ISO-%02d", count.index + 1)
     basedir   = format("VM_ISO-%02d", count.index + 1)
-    cpus      = 2
-    memory    = 500
+    cpus      = 4
+    memory    = 2800
     //image = "C:/Users/vovap/ubuntu-16.04.6-desktop-i386.iso"
 }
 
 resource "virtualbox_server" "VM_VDI" {
-  count   = 1
+  count   = 0
   name    = format("VM_VDI-%02d", count.index + 1)
   basedir = format("VM_VDI-%02d", count.index + 1)
   cpus    = 2
@@ -20,7 +20,7 @@ resource "virtualbox_server" "VM_VDI" {
 }
 
 resource "virtualbox_server" "VM_network" {
-  count   = 1
+  count   = 0
   name    = format("VM_network-%02d", count.index + 1)
   basedir = format("VM_network-%02d", count.index + 1)
   cpus    = 3
@@ -50,4 +50,24 @@ resource "virtualbox_server" "VM_network" {
   }
 
   status = "poweroff"
+}
+
+
+
+resource "virtualbox_server" "VM_Shapshots" {
+    count     = 0
+    name      = format("VM_Snapshots-%02d", count.index + 1)
+    basedir   = format("VM_Snapshots-%02d", count.index + 1)
+    cpus      = 4
+    memory    = 2000
+    snapshot {
+      name = "first"
+      description = "example"
+    }
+
+    snapshot {
+      name = "second"
+      description = "example"
+      current = true
+    }
 }
