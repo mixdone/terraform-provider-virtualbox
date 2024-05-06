@@ -64,6 +64,6 @@ jobs:
         working-directory: terraform-unit-testing
         run: go test -v vpc_test.go -tags=unit
 
-      - name: Run unit test1
+      - name: Run unit test2
         working-directory: terraform-unit-testing
         run: go test -v vm_test.go -tags=unit

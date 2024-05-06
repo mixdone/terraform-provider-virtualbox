@@ -36,5 +36,5 @@ output "status_3" {
 }
 
 output "vdi_size_3" {
-  value = virtualbox_server.VM_VDI[0].vdi_size
+  value = virtualbox_server.VM_VDI[0].disk_size
 }
