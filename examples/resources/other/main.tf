@@ -73,6 +73,18 @@
 # }
 
 
+resource "virtualbox_server" "diskLoad" {
+    count   = 1
+    name    = format("VM_disk_load-%02d", count.index + 1)
+    basedir = format("VM_disk_load-%02d", count.index + 1)
+    cpus    = 1
+    memory  = 512
+    status  = "poweroff"
+    disk    = "/home/mixdone/Desktop/64bit/Fedora 35 (64bit).vmdk"
+ 
+}
+
+
 # resource "virtualbox_server" "bad_VM_example" {
 #     count     = 1
 #     name      = format("VM_without_image-%02d", count.index + 1)
@@ -82,4 +94,3 @@
 #     status = "asdfasdf"
 #     os_id = "Windows7_64"
 # }
-

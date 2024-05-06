@@ -46,7 +46,7 @@ func resourceVM() *schema.Resource {
 				Default:     128,
 			},
 
-			"vdi_size": {
+			"disk_size": {
 				Description: "VDI size in MB.",
 				Type:        schema.TypeInt,
 				Optional:    true,
@@ -88,6 +88,11 @@ func resourceVM() *schema.Resource {
 				ForceNew:    true,
 			},
 
+			"disk": {
+				Type:     schema.TypeString,
+				Optional: true,
+			},
+
 			"network_adapter": {
 				Type:     schema.TypeList,
 				Optional: true,
@@ -112,47 +117,6 @@ func resourceVM() *schema.Resource {
 							Type:     schema.TypeBool,
 							Optional: true,
 							Default:  false,
-						},
-						"port_forwarding": {
-							Type:     schema.TypeList,
-							Optional: true,
-							Elem: &schema.Resource{
-								Schema: map[string]*schema.Schema{
-									"name": {
-										Type:     schema.TypeString,
-										Required: true,
-									},
-
-									"protocol": {
-										Description: "tcp|udp",
-										Type:        schema.TypeString,
-										Optional:    true,
-										Default:     "tcp",
-									},
-
-									"hostip": {
-										Type:     schema.TypeString,
-										Optional: true,
-										Default:  "",
-									},
-
-									"hostport": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-
-									"guestip": {
-										Type:     schema.TypeString,
-										Optional: true,
-										Default:  "",
-									},
-
-									"guestport": {
-										Type:     schema.TypeInt,
-										Required: true,
-									},
-								},
-							},
 						},
 					},
 				},
@@ -226,7 +190,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	vmConf.Name = d.Get("name").(string)
 	vmConf.CPUs = d.Get("cpus").(int)
 	vmConf.Memory = d.Get("memory").(int)
-	vmConf.Vdi_size = int64(d.Get("vdi_size").(int))
+	vmConf.DiskSize = int64(d.Get("disk_size").(int))
 	vmConf.OS_id = d.Get("os_id").(string)
 	vmConf.Group = d.Get("group").(string)
 	vmConf.DragAndDrop = d.Get("drag_and_drop").(string)
@@ -269,7 +233,11 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	if !ok {
 		url, ok := d.GetOk("url")
 		if !ok {
-			ltype = 2
+			disk, ok := d.GetOk("disk")
+			if !ok {
+				ltype = 2
+			}
+			image = disk.(string)
 		} else {
 			filename, err := pkg.FileDownload(url.(string), homedir)
 			if err != nil {
@@ -324,6 +292,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		NICs[i].Mode = vbg.NetworkMode(currentMode)
 		NICs[i].Type = vbg.NICType(currentType)
 		NICs[i].CableConnected = currentCable
+
 
 		portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
 
