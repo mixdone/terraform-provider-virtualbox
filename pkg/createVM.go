@@ -24,7 +24,7 @@ type VMConfig struct {
 	Image_path  string
 	Dirname     string
 	Ltype       LoadingType
-	Vdi_size    int64
+	DiskSize    int64
 	OS_id       string
 	Group       string
 	Snapshot    vbg.Snapshot
