@@ -12,7 +12,7 @@ func TestVirtualMachineCreation(t *testing.T) {
 
 	terraformOptions := &terraform.Options{
 		// The path to where your Terraform configuration files are located
-		TerraformDir: "../examples/resources",
+		TerraformDir: "../examples/resources/testing",
 		/*Vars: map[string]interface{}{
 			"count":  0,
 			"cpus":   3,

@@ -10,7 +10,7 @@ import (
 func TestVirtualMachineCreation2(t *testing.T) {
 	t.Parallel()
 	terraformOptions := &terraform.Options{
-		TerraformDir: "../examples/resources",
+		TerraformDir: "../examples/resources/testing",
 	}
 
 	defer terraform.Destroy(t, terraformOptions)
