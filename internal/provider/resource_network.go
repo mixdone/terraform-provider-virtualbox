@@ -60,7 +60,6 @@ func resourceHostOnlyCreate(ctx context.Context, d *schema.ResourceData, m inter
 	d.SetId(netCurr.Name)
 
 	if ip, ok := d.GetOk("ip"); ok {
-
 		octetsIP := strings.Split(ip.(string), ".")
 		oip0, _ := strconv.Atoi(octetsIP[0])
 		oip1, _ := strconv.Atoi(octetsIP[1])
@@ -73,7 +72,10 @@ func resourceHostOnlyCreate(ctx context.Context, d *schema.ResourceData, m inter
 		omask1, _ := strconv.Atoi(octetsMask[1])
 		omask2, _ := strconv.Atoi(octetsMask[2])
 		omask3, _ := strconv.Atoi(octetsMask[3])
-		netCurr.IPNet.Mask = net.IPv4Mask(byte(omask0), byte(omask1), byte(omask2), byte(omask3))
+		netCurr.IPMask.IP = net.IPv4(byte(omask0), byte(omask1), byte(omask2), byte(omask3))
+
+		//netCurr.IPNet.IP = net.IP(ip.(string))
+		//netCurr.IPNet.IP = net.IP(d.Get("netmask").(string))
 
 		if err := vb.ChangeNet(&netCurr); err != nil {
 			return diag.Errorf(err.Error())
@@ -112,7 +114,7 @@ func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interfa
 	if errors := d.Set("ip", necessaryNetwork.IPNet.IP.String()); errors != nil {
 		return diag.Errorf(errors.Error())
 	}
-	if errors := d.Set("netmask", fmt.Sprintf("%v", net.IP(necessaryNetwork.IPNet.Mask))); errors != nil {
+	if errors := d.Set("netmask", necessaryNetwork.IPMask.IP.String()); errors != nil {
 		return diag.Errorf(errors.Error())
 	}
 
@@ -147,10 +149,10 @@ func resourceHostOnlyUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		necessaryNetwork.IPNet.IP = net.IP(newIP)
 	}
 
-	actualIPMask := necessaryNetwork.IPNet.Mask
+	actualIPMask := necessaryNetwork.IPMask.IP
 	newIPMask := d.Get("netmask").(string)
-	if fmt.Sprintf("%v", actualIPMask) != newIPMask {
-		necessaryNetwork.IPNet.Mask = net.IPMask(newIPMask)
+	if actualIPMask.String() != newIPMask {
+		necessaryNetwork.IPMask.IP = net.IP(newIPMask)
 	}
 
 	vb.ChangeNet(&necessaryNetwork)
