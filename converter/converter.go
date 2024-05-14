@@ -58,16 +58,18 @@ func scan_info(config *os.File) (map[string](map[string]string), map[string](map
 	scanner := bufio.NewScanner(config)
 	currVM := ""
 	network_adapter_count := 0
+	working_with_vm := false
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if strings.Contains(line, "=") {
+		if strings.Contains(line, "=") && working_with_vm {
 			splited := strings.Split(line, "=")
 			general_info[currVM][strings.TrimSpace(splited[0])] = strings.TrimSpace(splited[1])
 			if strings.TrimSpace(splited[0]) == "group" {
 				vm_groups[strings.TrimSpace(splited[1])] = append(vm_groups[strings.TrimSpace(splited[1])], currVM)
 			}
 		} else if strings.Contains(line, "resource \"virtualbox_server\"") {
+			working_with_vm = true
 			splited := strings.Split(line, " ")
 			currVM = splited[2]
 			general_info[currVM] = make(map[string]string)
@@ -89,6 +91,20 @@ func scan_info(config *os.File) (map[string](map[string]string), map[string](map
 				}
 			}
 			network_adapter_count++
+		} else if strings.Contains(line, "snapshot") {
+			if scanner.Scan() {
+				line = scanner.Text()
+			}
+			for {
+				if strings.TrimSpace(line) == "}" {
+					break
+				}
+				if scanner.Scan() {
+					line = scanner.Text()
+				}
+			}
+		} else if strings.TrimSpace(line) == "}" {
+			working_with_vm = false
 		}
 	}
 

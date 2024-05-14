@@ -34,9 +34,11 @@ func Group_creation(general_info map[string]map[string]string, network_adapters 
 
 		fmt.Fprintln(new_config, "\tinstance_template {")
 		if err := group_required_resources(machines, general_info, new_config); err != nil {
+			fmt.Printf("%s: Error with required resources of vm group.\n", group_name)
 			return err
 		}
 		if err := group_resource_boot_disk(machines, general_info, new_config, yc_images); err != nil {
+			fmt.Printf("%s: Error with resource boot disk of vm group.\n", group_name)
 			return err
 		}
 		group_resource_network_interface(machines, network_adapters, new_config, network_name, subnet_name)
@@ -75,7 +77,7 @@ func group_required_resources(machines []string, general_info map[string]map[str
 		}
 		cpus, err := strconv.Atoi(str_cpus)
 		if err != nil {
-			return err
+			return tools.ErrInvalidCpusFormat
 		}
 		if cpus > max_cpus {
 			max_cpus = cpus
@@ -90,7 +92,7 @@ func group_required_resources(machines []string, general_info map[string]map[str
 		}
 		memory, err := strconv.Atoi(str_memory)
 		if err != nil {
-			return err
+			return tools.ErrInvalidMemoryFormat
 		}
 		memory /= 1000
 		if memory == 0 {
@@ -199,7 +201,7 @@ func group_size(general_info map[string]map[string]string, machines []string) (i
 		if ok {
 			count, err := strconv.Atoi(str_count)
 			if err != nil {
-				return size, err
+				return size, tools.ErrInvalidCountFormat
 			}
 			size += count
 		} else {
