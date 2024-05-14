@@ -63,32 +63,60 @@ The provider provides the following features:
 * Take a look at the examples in the [documentation](https://registry.terraform.io/providers/daria-barsukova/virtualbox/latest/docs) of the registry or use the following example:
 
 ```hcl
-# Creating a resource "virtualbox_server" with the name "VM_without_image"
-resource "virtualbox_server" "VM_without_image" {
-    count     = 0
-    name      = format("VM_without_image-%02d", count.index + 1)   # Formatting the name of the virtual machine
-    basedir = format("VM_without_image-%02d", count.index + 1)     # Formatting the base directory for the virtual machine
-    cpus      = 3                                                  # Setting the number of virtual CPUs
-    memory    = 1000                                               # Setting the memory size for the virtual machine
-    status = "running"                                             # Setting the status of the virtual machine to "running"
-    os_id = "Windows7_64"                                          # Setting the operating system identifier
+# Define a VirtualBox server resource for creating VMs with network configurations
+resource "virtualbox_server" "VM_network" {
+  count   = 0
+  name    = format("VM_network-%02d", count.index + 1)  # Name of the VM
+  basedir = format("VM_network-%02d", count.index + 1)  # Base directory for VM files
+  cpus    = 3                                           # Number of CPUs for the VM
+  memory  = 500                                         # Amount of memory in MB for the VM
+
+  # Network adapter configurations
+  network_adapter {
+    network_mode = "nat"                                # NAT mode for network adapter
+    port_forwarding {
+      name      = "rule1"
+      hostip    = ""                                    # Host IP address for port forwarding
+      hostport  = "80"                                  # Host port for port forwarding
+      guestip   = ""                                    # Guest IP address for port forwarding
+      guestport = "63222"                               # Guest port for port forwarding
+    }
+  }
+  network_adapter {
+    network_mode    = "nat"                             # NAT mode for network adapter
+    nic_type        = "82540EM"                         # Type of network interface controller
+    cable_connected = true                              # Whether the cable is connected
+  }
+  network_adapter {
+    network_mode = "hostonly"                          # Host-only mode for network adapter
+  }
+  network_adapter {
+    network_mode = "bridged"                            # Bridged mode for network adapter
+    nic_type     = "virtio"                             # Type of network interface controller
+  }
+
+  status = "poweroff"                                   # Initial status of the VM
 }
 
-# Creating a resource "virtualbox_server" with the name "bad_VM_example"
-resource "virtualbox_server" "bad_VM_example" {
-    count     = 0
-    name      = format("VM_without_image-%02d", count.index + 1)   # Formatting the name of the virtual machine
-    basedir = format("VM_without_image-%02d", count.index + 1)     # Formatting the base directory for the virtual machine
-    cpus      = 3                                                  # Setting the number of virtual CPUs
-    memory    = 2500                                               # Setting a higher memory size for the virtual machine
-    status = "poweroff"                                            # Setting the status of the virtual machine to "poweroff"
-    os_id = "Windows7_64"                                          # Setting the operating system identifier
-    group = "/man"                                                 # Assigning the virtual machine to a specific group
+# Define a VirtualBox server resource for creating VMs with snapshots
+resource "virtualbox_server" "VM_Shapshots" {
+  count   = 0
+  name    = format("VM_Snapshots-%02d", count.index + 1)  # Name of the VM
+  basedir = format("VM_Snapshots-%02d", count.index + 1)  # Base directory for VM files
+  cpus    = 4                                              # Number of CPUs for the VM
+  memory  = 2000                                           # Amount of memory in MB for the VM
 
-    snapshot {                                                     # Creating a snapshot for the virtual machine
-      name = "hello"                                               # Setting the name of the snapshot
-      description = "hohohhoho"                                    # Providing a description for the snapshot
-    }
+  # Define snapshots for the VM
+  snapshot {
+    name        = "first"                                  # Name of the snapshot
+    description = "example"                                # Description of the snapshot
+  }
+
+  snapshot {
+    name     = "second"                                    # Name of the snapshot
+    description = "example"                                # Description of the snapshot
+    current  = true                                        # Set this snapshot as current
+  }
 }
 ```
 
