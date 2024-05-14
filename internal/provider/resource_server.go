@@ -108,6 +108,10 @@ func resourceVM() *schema.Resource {
 							Optional:    true,
 							Default:     "none",
 						},
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
 						"nic_type": {
 							Type:     schema.TypeString,
 							Optional: true,
@@ -323,14 +327,16 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
 		currentCable := d.Get(requestCable).(bool)
 
+		requestNetworkName := fmt.Sprintf("network_adapter.%d.name", i)
+		currentNetworkName := d.Get(requestNetworkName).(string)
+
 		NICs[i].Index = i + 1
+		NICs[i].NetworkName = currentNetworkName
 		NICs[i].Mode = vbg.NetworkMode(currentMode)
 		NICs[i].Type = vbg.NICType(currentType)
 		NICs[i].CableConnected = currentCable
 
 		portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
-
-		//return diag.Errorf("lalal - %v", portForwardingNumber)
 
 		for j := 0; j < portForwardingNumber; j++ {
 			protocol := vbg.TCP
