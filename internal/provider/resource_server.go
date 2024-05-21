@@ -118,6 +118,42 @@ func resourceVM() *schema.Resource {
 							Optional: true,
 							Default:  false,
 						},
+						"port_forwarding": {
+							Type:     schema.TypeList,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"name": {
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"protocol": {
+										Description: "tcp|udp",
+										Type:        schema.TypeString,
+										Optional:    true,
+										Default:     "tcp",
+									},
+									"hostip": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Default:  "",
+									},
+									"hostport": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+									"guestip": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Default:  "",
+									},
+									"guestport": {
+										Type:     schema.TypeInt,
+										Required: true,
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -276,7 +312,6 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 	}
 	rule := make([]vbg.PortForwarding, 0, 10)
 	nicNumber := d.Get("network_adapter.#").(int)
-
 	for i := 0; i < nicNumber; i++ {
 
 		requestMode := fmt.Sprintf("network_adapter.%d.network_mode", i)
@@ -293,8 +328,9 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		NICs[i].Type = vbg.NICType(currentType)
 		NICs[i].CableConnected = currentCable
 
-
 		portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
+
+		//return diag.Errorf("lalal - %v", portForwardingNumber)
 
 		for j := 0; j < portForwardingNumber; j++ {
 			protocol := vbg.TCP
@@ -314,6 +350,7 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 			}
 			rule = append(rule, currentPF)
 		}
+
 	}
 
 	vmConf.Ltype = ltype
