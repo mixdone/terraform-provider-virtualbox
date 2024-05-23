@@ -16,19 +16,19 @@ func VM_creation(reference_name string, resources map[string]string, network_ada
 	fmt.Fprintf(new_config, "resource \"yandex_compute_instance\" %s {\n", reference_name)
 
 	if err := vm_optional_fields(resources, new_config); err != nil {
-		fmt.Println("Error with optional fields of vm.")
+		fmt.Printf("%s: Error with optional fields of vm.\n", reference_name)
 		return err
 	}
 
 	if err := vm_resource_boot_disk(resources, new_config, yc_images); err != nil {
-		fmt.Println("Error with resource boot disk.")
+		fmt.Printf("%s: Error with resource boot disk.\n", reference_name)
 		return err
 	}
 
 	vm_resource_network_interface(network_adapters[reference_name], new_config, subnet_name)
 
 	if err := vm_required_resources(resources, new_config); err != nil {
-		fmt.Println("Error with required resources of vm.")
+		fmt.Printf("%s: Error with required resources of vm.\n", reference_name)
 		return err
 	}
 
@@ -39,9 +39,13 @@ func VM_creation(reference_name string, resources map[string]string, network_ada
 // vm_optional_fields converts optional fields such as the number of such machines, the name of the VM and the folder that the VM belongs to.
 // The function accepts resources of the VM and the configuration file to write to it and returns any error encountered.
 func vm_optional_fields(resources map[string]string, new_config *os.File) error {
-	count, ok := resources["count"]
+	str_count, ok := resources["count"]
 	if ok {
-		fmt.Fprintf(new_config, "\tcount = %s\n", count)
+		count, err := strconv.Atoi(str_count)
+		if err != nil {
+			return tools.ErrInvalidCountFormat
+		}
+		fmt.Fprintf(new_config, "\tcount = %d\n", count)
 	}
 
 	name, ok := resources["name"]
@@ -96,7 +100,7 @@ func vm_required_resources(resources map[string]string, new_config *os.File) err
 
 	cpus, err := strconv.Atoi(str_cpus)
 	if err != nil {
-		return err
+		return tools.ErrInvalidCpusFormat
 	}
 
 	//By default, the guaranteed vCPU share is 100%. In this mode, the number of cores and memory must be a multiple of 2.
@@ -113,7 +117,7 @@ func vm_required_resources(resources map[string]string, new_config *os.File) err
 
 	mem, err := strconv.Atoi(memory)
 	if err != nil {
-		return err
+		return tools.ErrInvalidMemoryFormat
 	}
 
 	mem /= 1000

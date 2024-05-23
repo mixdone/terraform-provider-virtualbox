@@ -16,6 +16,9 @@ var ErrCpusNotDefined = errors.New("cpus must be specified")
 var ErrMemoryNotDefined = errors.New("memory must be specified")
 var ErrInvalidInput = errors.New("invalid input")
 var ErrInvalidName = errors.New("invalid resource name")
+var ErrInvalidMemoryFormat = errors.New("invalid memory format")
+var ErrInvalidCpusFormat = errors.New("invalid cpus format")
+var ErrInvalidCountFormat = errors.New("invalid format for number of VMs")
 
 // Info is the structure for the proper credentials.
 type Info struct {
@@ -64,6 +67,7 @@ func Get_os_name(vb_os_id string) string {
 		}
 	}
 
+	os_name += "-"
 	os_name = strings.ToLower(os_name)
 
 	return os_name
