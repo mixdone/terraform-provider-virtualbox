@@ -280,7 +280,13 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 				return diag.Errorf("File dowload failed: %s", err.Error())
 			}
 
-			if filepath.Ext(filepath.Base(filename)) != ".iso" {
+			if filepath.Ext(filepath.Base(filename)) == ".vdi" {
+				image = filename
+			} else if filepath.Ext(filepath.Base(filename)) == ".vhd" {
+				image = filename
+			} else if filepath.Ext(filepath.Base(filename)) == ".vmdk" {
+				image = filename
+			} else if filepath.Ext(filepath.Base(filename)) != ".iso" {
 				imagePath, err := pkg.UnpackImage(filename, installedData)
 				if err != nil {
 					return diag.Errorf("File unpaking failed: %s", err.Error())
