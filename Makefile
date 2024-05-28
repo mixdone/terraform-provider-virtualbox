@@ -1,4 +1,4 @@
-rebuild: clean macOS_build
+rebuild: clean linux_amd64_build
 
 macOS_build: set_log
 	go build -o terraform-provider-virtualbox
@@ -16,11 +16,9 @@ set_log:
 	export TF_LOG=TRACE
 	export TF_LOG_PATH="log.txt"
 	
-rm:
-	rm -rf ./examples/resources/.terraform*
-	rm -rf ./examples/resources/terraform*
-
 clean:
+	rm -rf ./examples/resources/vm_options/.terraform*
+	rm -rf ./examples/resources/vm_options/terraform*
 	rm -rf ./examples/resources/.terraform*
 	rm -rf ./examples/resources/terraform*
 	rm -rf ./examples/resources/log.txt
