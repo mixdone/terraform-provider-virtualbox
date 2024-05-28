@@ -14,7 +14,7 @@ Before using, ensure following prerequisites are met:
 ### Configuration
 
 ```hcl
-resource "virtualbox_nat_network" "example_nat" {
+resource "virtualbox_natnetwork" "example_nat" {
   name     = "example_nat_network"
   network  = "192.168.10.0/24"
   enabled  = true

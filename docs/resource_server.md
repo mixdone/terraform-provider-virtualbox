@@ -30,7 +30,7 @@ The network_adapter property allows you to define the network configuration for 
 
 ## Example Usage
 ```hcl
-resource "custom_vm" "example_vm" {
+resource "virtualbox_server" "example_vm" {
   name = "my-vm"
   basedir = "VMs"
   memory = 256
