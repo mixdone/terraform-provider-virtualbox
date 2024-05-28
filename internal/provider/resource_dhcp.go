@@ -11,6 +11,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// resourceDHCP returns schema for DHCP resource.
+// it defines structure of DHCP resource including its attributes and CRUD operations.
 func resourceDHCP() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: dhcpServerCreate,
@@ -60,6 +62,9 @@ func resourceDHCP() *schema.Resource {
 		}}
 }
 
+// dhcpServerCreate creates new DHCP server.
+// it retrieves DHCP configuration parameters from resource data, creates DHCP server
+// using VirtualBox API and stores DHCP server's ID.
 func dhcpServerCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	dhcp := vbg.DHCPServer{}
 
@@ -82,6 +87,8 @@ func dhcpServerCreate(ctx context.Context, d *schema.ResourceData, m interface{}
 	return dhcpServerRead(ctx, d, m)
 }
 
+// dhcpServerRead reads DHCP server configuration.
+// it retrieves DHCP configuration parameters from VirtualBox API and sets them in resource data.
 func dhcpServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	homedir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
@@ -118,6 +125,8 @@ func dhcpServerRead(ctx context.Context, d *schema.ResourceData, m interface{}) 
 	return nil
 }
 
+// dhcpServerUpdate updates DHCP server configuration.
+// it retrieves both old and new DHCP configurations, compares them, and modifies DHCP server.
 func dhcpServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	homedir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
@@ -164,6 +173,8 @@ func dhcpServerUpdate(ctx context.Context, d *schema.ResourceData, m interface{}
 	return dhcpServerRead(ctx, d, m)
 }
 
+// dhcpServerDelete deletes DHCP server.
+// it retrieves DHCP server configuration and removes it using VirtualBox API.
 func dhcpServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	homedir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
@@ -179,6 +190,8 @@ func dhcpServerDelete(ctx context.Context, d *schema.ResourceData, m interface{}
 	return nil
 }
 
+// dhcpServerExists checks if DHCP server exists.
+// it verifies existence of DHCP server configuration.
 func dhcpServerExists(d *schema.ResourceData, m interface{}) (bool, error) {
 	homedir, _ := os.UserHomeDir()
 	vb := vbg.NewVBox(vbg.Config{BasePath: homedir})
