@@ -108,6 +108,10 @@ func resourceVM() *schema.Resource {
 							Optional:    true,
 							Default:     "none",
 						},
+						"name": {
+							Type:     schema.TypeString,
+							Required: true,
+						},
 						"nic_type": {
 							Type:     schema.TypeString,
 							Optional: true,
@@ -337,14 +341,16 @@ func resourceVirtualBoxCreate(ctx context.Context, d *schema.ResourceData, m int
 		requestCable := fmt.Sprintf("network_adapter.%d.cable_connected", i)
 		currentCable := d.Get(requestCable).(bool)
 
+		requestNetworkName := fmt.Sprintf("network_adapter.%d.name", i)
+		currentNetworkName := d.Get(requestNetworkName).(string)
+
 		NICs[i].Index = i + 1
+		NICs[i].NetworkName = currentNetworkName
 		NICs[i].Mode = vbg.NetworkMode(currentMode)
 		NICs[i].Type = vbg.NICType(currentType)
 		NICs[i].CableConnected = currentCable
 
 		portForwardingNumber := d.Get(fmt.Sprintf("network_adapter.%d.port_forwarding.#", i)).(int)
-
-		//return diag.Errorf("lalal - %v", portForwardingNumber)
 
 		for j := 0; j < portForwardingNumber; j++ {
 			protocol := vbg.TCP
@@ -619,7 +625,16 @@ func resourceVirtualBoxUpdate(ctx context.Context, d *schema.ResourceData, m int
 			vm.Spec.NICs[i].Mode = currentMode
 		}
 
+    // Updating name of network adapter
+		requestNetworkName := fmt.Sprintf("network_adapter.%d.name", i)
+		currentNetworkName := d.Get(requestNetworkName).(string)
+		if currentNetworkName != vm.Spec.NICs[i].NetworkName {
+			needAppendNetwork = true
+			vm.Spec.NICs[i].NetworkName = currentNetworkName
+		}
+
 		// Updating type of network adapter
+
 		requestType := fmt.Sprintf("network_adapter.%d.nic_type", i)
 		currentType := vbg.NICType(d.Get(requestType).(string))
 		if currentType != vm.Spec.NICs[i].Type {
@@ -1018,6 +1033,7 @@ func setNetwork(d *schema.ResourceData, vm *vbg.VirtualMachine) error {
 		out["network_mode"] = getMode(nic)
 		out["nic_type"] = getType(nic)
 		out["cable_connected"] = nic.CableConnected
+		out["name"] = nic.NetworkName
 
 		rules := make([]map[string]any, 0, 3)
 		for j := 0; j < len(nic.PortForwarding); j++ {
