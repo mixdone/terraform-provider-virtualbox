@@ -3,10 +3,8 @@ package provider
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -60,22 +58,9 @@ func resourceHostOnlyCreate(ctx context.Context, d *schema.ResourceData, m inter
 	d.SetId(netCurr.Name)
 
 	if ip, ok := d.GetOk("ip"); ok {
-		octetsIP := strings.Split(ip.(string), ".")
-		oip0, _ := strconv.Atoi(octetsIP[0])
-		oip1, _ := strconv.Atoi(octetsIP[1])
-		oip2, _ := strconv.Atoi(octetsIP[2])
-		oip3, _ := strconv.Atoi(octetsIP[3])
-		netCurr.IPNet.IP = net.IPv4(byte(oip0), byte(oip1), byte(oip2), byte(oip3))
+		netCurr.IPNet = ip.(string)
 
-		octetsMask := strings.Split(d.Get("netmask").(string), ".")
-		omask0, _ := strconv.Atoi(octetsMask[0])
-		omask1, _ := strconv.Atoi(octetsMask[1])
-		omask2, _ := strconv.Atoi(octetsMask[2])
-		omask3, _ := strconv.Atoi(octetsMask[3])
-		netCurr.IPMask.IP = net.IPv4(byte(omask0), byte(omask1), byte(omask2), byte(omask3))
-
-		//netCurr.IPNet.IP = net.IP(ip.(string))
-		//netCurr.IPNet.IP = net.IP(d.Get("netmask").(string))
+		netCurr.IPMask = d.Get("netmask").(string)
 
 		if err := vb.ChangeNet(&netCurr); err != nil {
 			return diag.Errorf(err.Error())
@@ -111,10 +96,10 @@ func resourceHostOnlyRead(ctx context.Context, d *schema.ResourceData, m interfa
 	if errors := d.Set("index", index); errors != nil {
 		return diag.Errorf(errors.Error())
 	}
-	if errors := d.Set("ip", necessaryNetwork.IPNet.IP.String()); errors != nil {
+	if errors := d.Set("ip", necessaryNetwork.IPNet); errors != nil {
 		return diag.Errorf(errors.Error())
 	}
-	if errors := d.Set("netmask", necessaryNetwork.IPMask.IP.String()); errors != nil {
+	if errors := d.Set("netmask", necessaryNetwork.IPMask); errors != nil {
 		return diag.Errorf(errors.Error())
 	}
 
@@ -143,16 +128,16 @@ func resourceHostOnlyUpdate(ctx context.Context, d *schema.ResourceData, m inter
 		}
 	}
 
-	actualIP := necessaryNetwork.IPNet.IP
+	actualIP := necessaryNetwork.IPNet
 	newIP := d.Get("ip").(string)
-	if fmt.Sprintf("%v", actualIP) != newIP {
-		necessaryNetwork.IPNet.IP = net.IP(newIP)
+	if actualIP != newIP {
+		necessaryNetwork.IPNet = newIP
 	}
 
-	actualIPMask := necessaryNetwork.IPMask.IP
+	actualIPMask := necessaryNetwork.IPMask
 	newIPMask := d.Get("netmask").(string)
-	if actualIPMask.String() != newIPMask {
-		necessaryNetwork.IPMask.IP = net.IP(newIPMask)
+	if actualIPMask != newIPMask {
+		necessaryNetwork.IPMask = newIPMask
 	}
 
 	vb.ChangeNet(&necessaryNetwork)
