@@ -20,7 +20,7 @@ resource "virtualbox_server" "VM_VDI" {
 }
 
 resource "virtualbox_server" "VM_network" {
-  count   = 0
+  count   = 1
   name    = format("VM_network-%02d", count.index + 1)
   basedir = format("VM_network-%02d", count.index + 1)
   cpus    = 3
@@ -42,7 +42,8 @@ resource "virtualbox_server" "VM_network" {
     cable_connected = true
   }
   network_adapter {
-    network_mode = "hostonly"
+    network_mode = "natnetwork"
+    name = "natnet5"
   }
   network_adapter {
     network_mode = "bridged"
@@ -52,7 +53,19 @@ resource "virtualbox_server" "VM_network" {
   status = "poweroff"
 }
 
+resource "virtualbox_natnetwork" "name" {
+  name = "natnet5"
+  network = "10.0.0.0/16"
+}
 
+resource "virtualbox_dhcp" "name" {
+  network_name = "natnet5"
+  network_mask = "255.255.0.0"
+  server_ip = "10.0.1.2"
+  lower_ip = "10.0.0.1"
+  upper_ip = "10.0.0.30"
+  enabled = true
+}
 
 resource "virtualbox_server" "VM_Shapshots" {
     count     = 0
