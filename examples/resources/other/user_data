@@ -1,4 +1,4 @@
 {
-    "something": "one",
-    "next_field": "two"
+    "locale": "en_GB.UTF-8",
+    "package_update": "true"
 }

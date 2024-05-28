@@ -8,7 +8,7 @@ It provides a Terraform provider for managing DHCP servers using VirtualBox. It 
 To use it, include in your Terraform configuration. For example:
 
 ```hcl
-resource "dhcp_server" "example" {
+resource "virtualbox_dhcp" "example" {
   server_ip     = "192.168.1.1"
   lower_ip      = "192.168.1.100"
   upper_ip      = "192.168.1.200"

@@ -58,7 +58,7 @@ The provider provides the following features:
 
 ## Example usage
 
-* [Guide for launching the provider on your device ](https://github.com/mixdone/terraform-provider-virtualbox/main/GUIDE.md)
+* [Guide for launching the provider on your device ](https://github.com/mixdone/terraform-provider-virtualbox/blob/main/GUIDE.md)
 
 * Take a look at the examples in the [documentation](https://registry.terraform.io/providers/daria-barsukova/virtualbox/latest/docs) of the registry or use the following example:
 
