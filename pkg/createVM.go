@@ -18,31 +18,33 @@ const (
 )
 
 type VMConfig struct {
-	Name       string
-	CPUs       int
-	Memory     int
-	Image_path string
-	Dirname    string
-	Ltype      LoadingType
-	Vdi_size   int64
-	OS_id      string
-	Group      string
-	Snapshot   vbg.Snapshot
-	NICs       []vbg.NIC
+	Name        string
+	CPUs        int
+	Memory      int
+	Image_path  string
+	Dirname     string
+	Ltype       LoadingType
+	DiskSize    int64
+	OS_id       string
+	Group       string
+	Snapshot    vbg.Snapshot
+	NICs        []vbg.NIC
+	DragAndDrop string
+	Clipboard   string
 }
 
 // create VM with chosen loading type
 
 func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 	// make path to existing vdi or create name from new vdi
-	var vdiDisk string
+	var disk string
 	switch vmCfg.Ltype {
 	case vdiLoading:
-		vdiDisk = vmCfg.Image_path
+		disk = vmCfg.Image_path
 	case imageloading:
-		vdiDisk = filepath.Base(vmCfg.Image_path)
-		vdiDisk = vdiDisk[:len(vdiDisk)-len(filepath.Ext(vdiDisk))] + vmCfg.Name + ".vdi"
-		vdiDisk = filepath.Join(vmCfg.Dirname, vdiDisk)
+		disk = filepath.Base(vmCfg.Image_path)
+		disk = disk[:len(disk)-len(filepath.Ext(disk))] + vmCfg.Name + ".vdi"
+		disk = filepath.Join(vmCfg.Dirname, disk)
 	}
 
 	vb := vbg.NewVBox(vbg.Config{
@@ -62,9 +64,9 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 	}
 
 	disk_VDI := vbg.Disk{
-		Path:       vdiDisk,
-		Format:     vbg.VDI,
-		SizeMB:     vmCfg.Vdi_size,
+		Path:       disk,
+		Format:     vbg.DiskFormat(filepath.Ext(filepath.Base(disk))[1:]),
+		SizeMB:     vmCfg.DiskSize,
 		Type:       "hdd",
 		Controller: sata,
 	}
@@ -114,6 +116,8 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 		Group:           vmCfg.Group,
 		CurrentSnapshot: vmCfg.Snapshot,
 		NICs:            vmCfg.NICs,
+		DragAndDrop:     vmCfg.DragAndDrop,
+		Clipboard:       vmCfg.Clipboard,
 	}
 
 	vm := &vbg.VirtualMachine{
@@ -139,8 +143,10 @@ func CreateVM(vmCfg VMConfig) (*vbg.VirtualMachine, error) {
 		return nil, fmt.Errorf("set memory failed: %s", err.Error())
 	}
 
-	if err := vb.ModifyVM(vm, []string{"network_adapter"}); err != nil {
-		return nil, fmt.Errorf("set network failed: %s", err.Error())
+	if len(vm.Spec.NICs) > 0 {
+		if err := vb.ModifyVM(vm, []string{"network_adapter"}); err != nil {
+			return nil, fmt.Errorf("set network failed: %s", err.Error())
+		}
 	}
 
 	// Connecting a disk to a virtual machine

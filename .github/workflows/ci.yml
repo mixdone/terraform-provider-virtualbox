@@ -2,18 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    #branches: [main]
     paths-ignore:
       - 'README.md'
       - 'docs/**'
-      - 'examples/**'
-
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - 'examples/**'
 
 jobs:
 
@@ -28,9 +20,14 @@ jobs:
           go-version: '1.21.1'
           check-latest: true
 
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@633666f66e0061ca3b725c73b2ec20cd13a8fdd1 # v2.0.3
+        with:
+          terraform_version: ~1.3
+          terraform_wrapper: false
 
       - name: Build
-        run: go build -v ./...
+        run: go build -o terraform-provider-virtualbox
 
       - name: Run go vet
         run: go vet ./...
@@ -53,5 +50,23 @@ jobs:
       - name: Run golint
         run: golint ./...
 
-      - name: Run tests
-        run: go test -race -vet=off ./...
+      - name: Run functional tests
+        run: go test -race -vet=off ./internal/provider
+
+      - name: Prepare env1
+        run: mkdir -p ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
+           
+      - name: Prepare env2
+        run: cp terraform-provider-virtualbox ~/.terraform.d/plugins/terraform-virtualbox.local/virtualboxprovider/virtualbox/1.0.0/linux_amd64
+
+      - name: Download Go Modules
+        working-directory: terraform-unit-testing
+        run: go mod download
+
+      - name: Run unit test1
+        working-directory: terraform-unit-testing
+        run: go test -v vpc_test.go -tags=unit
+
+      - name: Run unit test2
+        working-directory: terraform-unit-testing
+        run: go test -v vm_test.go -tags=unit

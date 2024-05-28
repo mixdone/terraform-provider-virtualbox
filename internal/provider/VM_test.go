@@ -297,7 +297,7 @@ func Test_ControlVM(t *testing.T) {
 		Memory:     memory,
 		Image_path: url,
 		Dirname:    machinesDir,
-		Vdi_size:   vdi,
+		DiskSize:   vdi,
 		OS_id:      os_id,
 		Ltype:      ltype,
 	}
@@ -372,7 +372,7 @@ func Test_ModifyVM(t *testing.T) {
 		Memory:     memory,
 		Image_path: url,
 		Dirname:    machinesDir,
-		Vdi_size:   vdi,
+		DiskSize:   vdi,
 		OS_id:      os_id,
 		Ltype:      ltype,
 	}
