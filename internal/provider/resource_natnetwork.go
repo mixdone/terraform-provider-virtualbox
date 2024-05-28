@@ -10,6 +10,7 @@ import (
 	vbg "github.com/mixdone/virtualbox-go"
 )
 
+// resourceNatNetwork returns the schema for the NAT network resource.
 func resourceNatNetwork() *schema.Resource {
 	return &schema.Resource{
 		CreateContext: resourceNatNetworkCreate,
@@ -133,16 +134,20 @@ func resourceNatNetwork() *schema.Resource {
 	}
 }
 
+// resourceNatNetworkCreate creates new NAT network.
 func resourceNatNetworkCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	// Retrieving home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return diag.Errorf("userhomedir failed: %s", err.Error())
 	}
 
+	// Initializing VirtualBox client
 	vb := vbg.NewVBox(vbg.Config{
 		BasePath: homeDir,
 	})
 
+	// Creating NAT network configuration
 	var natNet vbg.NatNetwork
 	natNet.NetName = d.Get("name").(string)
 	natNet.Network = d.Get("network").(string)
@@ -150,11 +155,14 @@ func resourceNatNetworkCreate(ctx context.Context, d *schema.ResourceData, m int
 	natNet.DHCP = d.Get("dhcp").(bool)
 	natNet.Ipv6 = d.Get("ipv6").(bool)
 
+	// Retrieving port forwarding rules
+	// Creating rules for IPv4 and IPv6
 	rules4 := make([]vbg.PortForwarding, 0, 10)
 	rules6 := make([]vbg.PortForwarding, 0, 10)
 	portForwarding4Number := d.Get("port_forwarding_4.#").(int)
 	portForwarding6Number := d.Get("port_forwarding_6.#").(int)
 
+	// Processing IPv4 port forwarding rules
 	for i := 0; i < portForwarding4Number; i++ {
 		protocol := vbg.TCP
 		if d.Get(fmt.Sprintf("port_forwarding_4.%d.protocol", i)).(string) == "udp" {
@@ -172,6 +180,7 @@ func resourceNatNetworkCreate(ctx context.Context, d *schema.ResourceData, m int
 		rules4 = append(rules4, currentPF)
 	}
 
+	// Processing IPv6 port forwarding rules
 	for i := 0; i < portForwarding6Number; i++ {
 		protocol := vbg.TCP
 		if d.Get(fmt.Sprintf("port_forwarding_6.%d.protocol", i)).(string) == "udp" {
@@ -189,9 +198,11 @@ func resourceNatNetworkCreate(ctx context.Context, d *schema.ResourceData, m int
 		rules6 = append(rules6, currentPF)
 	}
 
+	// Assigning port forwarding rules to NAT network configuration
 	natNet.PortForward4 = rules4
 	natNet.PortForward6 = rules6
 
+	// Adding and starting NAT network
 	if err := vb.AddNatNet(&natNet); err != nil {
 		return diag.Errorf("Adding NAT network failed: %s", err.Error())
 	}
@@ -200,27 +211,34 @@ func resourceNatNetworkCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.Errorf("Starting NAT network failed: %s", err.Error())
 	}
 
+	// Setting resource ID to name of NAT network
 	d.SetId(natNet.NetName)
 
+	// Triggering read operation to populate resource data
 	return resourceNatNetworkRead(ctx, d, m)
 }
 
+// resourceNatNetworkRead reads state of existing NAT network.
 func resourceNatNetworkRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	// Retrieving home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return diag.Errorf("userhomedir failed: %s", err.Error())
 	}
 
+	// Initializing VirtualBox client
 	vb := vbg.NewVBox(vbg.Config{
 		BasePath: homeDir,
 	})
 
+	// Retrieving list of NAT networks
 	natnets, err := vb.ListNatNets()
 	if err != nil {
 		d.SetId("")
 		return diag.Errorf("Getting list of NAT networks failed: %s", err.Error())
 	}
 
+	// Finding NAT network matching resource ID
 	id := d.Id()
 
 	var necessaryNetwork *vbg.NatNetwork
@@ -231,6 +249,7 @@ func resourceNatNetworkRead(ctx context.Context, d *schema.ResourceData, m inter
 		}
 	}
 
+	// Setting resource data based on retrieved NAT network configuration
 	if err := d.Set("name", necessaryNetwork.NetName); err != nil {
 		return diag.Errorf("Didn't manage to set name: %s", err.Error())
 	}
@@ -247,6 +266,7 @@ func resourceNatNetworkRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.Errorf("Didn't manage to set enabled or disabled ipv6: %s", err.Error())
 	}
 
+	// Populating port forwarding rules for IPv6
 	rules4 := make([]map[string]any, 0, 10)
 	for i := 0; i < len(necessaryNetwork.PortForward4); i++ {
 		protocol := "tcp"
@@ -264,10 +284,12 @@ func resourceNatNetworkRead(ctx context.Context, d *schema.ResourceData, m inter
 		})
 	}
 
+	// Setting IPv4 port forwarding rules
 	if err := d.Set("port_forwarding_4", rules4); err != nil {
 		return diag.Errorf("Didn't manage to set ipv4 port forwarding: %s", err.Error())
 	}
 
+	// Populating port forwarding rules for IPv6
 	rules6 := make([]map[string]any, 0, 10)
 	for i := 0; i < len(necessaryNetwork.PortForward6); i++ {
 		protocol := "tcp"
@@ -285,6 +307,7 @@ func resourceNatNetworkRead(ctx context.Context, d *schema.ResourceData, m inter
 		})
 	}
 
+	// Setting IPv6 port forwarding rules
 	if err := d.Set("port_forwarding_6", rules6); err != nil {
 		return diag.Errorf("Didn't manage to set ipv6 port forwarding: %s", err.Error())
 	}
@@ -292,22 +315,27 @@ func resourceNatNetworkRead(ctx context.Context, d *schema.ResourceData, m inter
 	return nil
 }
 
+// resourceNatNetworkUpdate updates existing NAT network.
 func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	// Retrieving home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return diag.Errorf("userhomedir failed: %s", err.Error())
 	}
 
+	// Initializing VirtualBox client
 	vb := vbg.NewVBox(vbg.Config{
 		BasePath: homeDir,
 	})
 
+	// Retrieving list of NAT networks
 	natnets, err := vb.ListNatNets()
 	if err != nil {
 		d.SetId("")
 		return diag.Errorf("Getting list of NAT networks failed: %s", err.Error())
 	}
 
+	// Finding the NAT network matching the resource ID
 	id := d.Id()
 
 	var necessaryNetwork *vbg.NatNetwork
@@ -318,8 +346,10 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// Collecting parameters for update
 	parameters := []string{}
 
+	// Updating network configuration if changed
 	actualNetwork := necessaryNetwork.Network
 	newNetwork := d.Get("network").(string)
 	if actualNetwork != newNetwork {
@@ -327,6 +357,7 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		necessaryNetwork.Network = newNetwork
 	}
 
+	// Updating enabled status if changed
 	actualEnabled := necessaryNetwork.Enabled
 	newEnabled := d.Get("enabled").(bool)
 	if actualEnabled != newEnabled {
@@ -334,6 +365,7 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		necessaryNetwork.Enabled = newEnabled
 	}
 
+	// Updating DHCP status if changed
 	actualDHCP := necessaryNetwork.DHCP
 	newDHCP := d.Get("dhcp").(bool)
 	if actualDHCP != newDHCP {
@@ -341,6 +373,7 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		necessaryNetwork.DHCP = newDHCP
 	}
 
+	// Updating IPv6 status if changed
 	actualIpv6 := necessaryNetwork.Ipv6
 	newIpv6 := d.Get("ipv6").(bool)
 	if actualIpv6 != newIpv6 {
@@ -348,6 +381,7 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		necessaryNetwork.Ipv6 = newIpv6
 	}
 
+	// Applying changes if any parameters were updated
 	if len(parameters) != 0 {
 		err = vb.ModifyNatNet(necessaryNetwork, parameters)
 		if err != nil {
@@ -355,19 +389,30 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// Variable to track if there are changes in port forwarding rules
 	needChangeRules := false
+
+	// Slice to hold port forwarding rules to be deleted
 	deleteForwardingList := make([]vbg.PortForwarding, 0, 10)
+
+	// Slice to hold new port forwarding rules to be added
 	addNewForwardingList := make([]vbg.PortForwarding, 0, 10)
 
+	// Determine number of new IPv4 port forwarding rules
 	newRule4Number := d.Get("port_forwarding_4.#").(int)
+
+	// Determine actual number of existing IPv4 port forwarding rules
 	actualRule4Number := len(necessaryNetwork.PortForward4)
 
+	// Append empty rules if number of new rules exceeds actual number
 	if actualRule4Number < newRule4Number {
 		var rules = make([]vbg.PortForwarding, newRule4Number-actualRule4Number)
 		necessaryNetwork.PortForward4 = append(necessaryNetwork.PortForward4, rules...)
 	}
 
+	// Loop through each new IPv4 port forwarding rule
 	for i := 0; i < newRule4Number; i++ {
+		// Construct request parameters for current rule
 		requestName := fmt.Sprintf("port_forwarding_4.%d.name", i)
 		requestHostIp := fmt.Sprintf("port_forwarding_4.%d.hostip", i)
 		requestHostPort := fmt.Sprintf("port_forwarding_4.%d.hostport", i)
@@ -375,6 +420,7 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		requestGuestPort := fmt.Sprintf("port_forwarding_4.%d.guestport", i)
 		requestProtocol := fmt.Sprintf("port_forwarding_4.%d.protocol", i)
 
+		// Extract values for current rule from Terraform schema
 		currentName := d.Get(requestName).(string)
 		currentHostIp := d.Get(requestHostIp).(string)
 		currentHostPort := d.Get(requestHostPort).(int)
@@ -386,6 +432,7 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 			currentProtocol = vbg.UDP
 		}
 
+		// Check if current rule differs from existing rule
 		if currentName != necessaryNetwork.PortForward4[i].Name ||
 			currentHostIp != necessaryNetwork.PortForward4[i].HostIP ||
 			currentHostPort != necessaryNetwork.PortForward4[i].HostPort ||
@@ -393,7 +440,10 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 			currentGuestPort != necessaryNetwork.PortForward4[i].GuestPort ||
 			currentProtocol != necessaryNetwork.PortForward4[i].Protocol {
 
+			// Mark that changes are needed
 			needChangeRules = true
+
+			// Create new port forwarding rule
 			rule := vbg.PortForwarding{
 				Name:      currentName,
 				Protocol:  currentProtocol,
@@ -402,13 +452,18 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 				GuestIP:   currentGuestIp,
 				GuestPort: currentGuestPort,
 			}
+
+			// Add new rule to list of rules to be added
 			addNewForwardingList = append(addNewForwardingList, rule)
+
+			// If current rule index is within actual rule count, add existing rule to list of rules to be deleted
 			if i < actualRule4Number {
 				deleteForwardingList = append(deleteForwardingList, necessaryNetwork.PortForward4[i])
 			}
 		}
 	}
 
+	// Remove excess IPv4 port forwarding rules if actual count is greater than new count
 	if actualRule4Number > newRule4Number {
 		for i := 0; i < actualRule4Number-newRule4Number; i++ {
 			needChangeRules = true
@@ -416,13 +471,16 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// Apply changes if needed
 	if needChangeRules {
+		// Delete existing port forwarding rules
 		if len(deleteForwardingList) > 0 {
 			if err := vb.DeleteAllPortForwNat(necessaryNetwork, deleteForwardingList, "--port-forward-4"); err != nil {
 				return diag.Errorf("Unable to delete ipv4 port forwardings: %s", err.Error())
 			}
 		}
 
+		// Add new port forwarding rules
 		if len(addNewForwardingList) > 0 {
 			if err := vb.AddAllPortForwNat(necessaryNetwork, addNewForwardingList, "--port-forward-4"); err != nil {
 				return diag.Errorf("Unable to set ipv4 port forwardings: %s", err.Error())
@@ -430,6 +488,7 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// Reset variables for IPv6 port forwarding rules
 	needChangeRules = false
 	deleteForwardingList = make([]vbg.PortForwarding, 0, 10)
 	addNewForwardingList = make([]vbg.PortForwarding, 0, 10)
@@ -507,25 +566,31 @@ func resourceNatNetworkUpdate(ctx context.Context, d *schema.ResourceData, m int
 
 	d.SetId(necessaryNetwork.NetName)
 
+	// Triggering read operation to populate resource data
 	return resourceNatNetworkRead(ctx, d, m)
 }
 
+// resourceNatNetworkDelete deletes existing NAT network.
 func resourceNatNetworkDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	// Retrieving home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return diag.Errorf("userhomedir failed: %s", err.Error())
 	}
 
+	// Initializing VirtualBox client
 	vb := vbg.NewVBox(vbg.Config{
 		BasePath: homeDir,
 	})
 
+	// Retrieving list of NAT networks
 	natnets, err := vb.ListNatNets()
 	if err != nil {
 		d.SetId("")
 		return diag.Errorf("Getting list of NAT networks failed: %s", err.Error())
 	}
 
+	// Finding NAT network matching the resource ID
 	id := d.Id()
 
 	var necessaryNetwork *vbg.NatNetwork
@@ -536,6 +601,7 @@ func resourceNatNetworkDelete(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// Stopping and removing NAT network
 	if err := vb.StopNatNet(necessaryNetwork); err != nil {
 		return diag.Errorf("Stopping NAT network failed: %s", err.Error())
 	}

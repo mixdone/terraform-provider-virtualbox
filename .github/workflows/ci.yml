@@ -12,7 +12,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -31,6 +31,9 @@ jobs:
 
       - name: Run go vet
         run: go vet ./...
+
+      - name: Update packages
+        run: sudo apt-get update
 
       - name: Install VirtualBox
         run: sudo apt-get install virtualbox
