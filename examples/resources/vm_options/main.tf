@@ -16,7 +16,7 @@ resource "virtualbox_server" "VM_VDI" {
   memory  = 500
   url =  "https://github.com/ccll/terraform-provider-virtualbox-images/releases/download/ubuntu-15.04/ubuntu-15.04.tar.xz"
   status   = "poweroff"
-  vdi_size = 25000
+  disk_size = 25000
 }
 
 resource "virtualbox_server" "VM_network" {
@@ -62,11 +62,6 @@ resource "virtualbox_server" "VM_Shapshots" {
     memory    = 2000
     snapshot {
       name = "first"
-      description = "example"
-    }
-
-    snapshot {
-      name = "second"
       description = "example"
       current = true
     }

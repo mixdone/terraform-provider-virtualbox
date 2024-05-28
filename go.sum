@@ -165,8 +165,6 @@ github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RR
 github.com/mitchellh/reflectwalk v1.0.0/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
 github.com/mitchellh/reflectwalk v1.0.2 h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zxSIeXaQ=
 github.com/mitchellh/reflectwalk v1.0.2/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
-github.com/mixdone/virtualbox-go v0.0.0-20240505143716-df8439853236 h1:09mE7GIJ2RM1yOIFMYGy3tXsUfblviFlJsl+WlMuOuY=
-github.com/mixdone/virtualbox-go v0.0.0-20240505143716-df8439853236/go.mod h1:L+/R9lfDhgywDwybZn2mAS9ZPyZROyxkBihq9kdm/A8=
 github.com/mixdone/virtualbox-go v0.0.0-20240505145515-4656930b1a5b h1:scL74TXGX3llAD0wdpJQlE/zbrDlfORIcCcGlnm3JxE=
 github.com/mixdone/virtualbox-go v0.0.0-20240505145515-4656930b1a5b/go.mod h1:L+/R9lfDhgywDwybZn2mAS9ZPyZROyxkBihq9kdm/A8=
 github.com/nwaples/rardecode v1.1.3 h1:cWCaZwfM5H7nAD6PyEdcVnczzV8i/JtotnyW/dD9lEc=
